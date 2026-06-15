@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 import html
 import os
+import unicodedata
 
 import numpy as np
 import pandas as pd
@@ -37,7 +38,6 @@ COLOR_PRINCIPAL = "#A5133D"
 COLOR_OSCURO = "#650D28"
 COLOR_MEDIO = "#C55B77"
 COLOR_CLARO = "#F3CED7"
-COLOR_FONDO = "#F4F5F7"
 COLOR_GRIS = "#6B7280"
 COLOR_VERDE = "#198754"
 COLOR_AMARILLO = "#D89B00"
@@ -51,8 +51,9 @@ COLOR_ROJO = "#B42318"
 st.markdown(
     f"""
     <style>
+
         .block-container {{
-            padding-top: 1.2rem;
+            padding-top: 4rem;
             padding-bottom: 2rem;
             padding-left: 2.3rem;
             padding-right: 2.3rem;
@@ -65,7 +66,8 @@ st.markdown(
             font-weight: 800;
             border-left: 6px solid {COLOR_PRINCIPAL};
             padding-left: 14px;
-            margin-bottom: 5px;
+            margin-top: 0;
+            margin-bottom: 6px;
             line-height: 1.15;
         }}
 
@@ -78,12 +80,16 @@ st.markdown(
 
         .tarjeta {{
             border: 2px solid {COLOR_PRINCIPAL};
-            border-radius: 5px;
+            border-radius: 6px;
             padding: 16px 12px;
-            min-height: 150px;
+            min-height: 160px;
             text-align: center;
             background-color: {COLOR_CLARO};
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-sizing: border-box;
         }}
 
         .tarjeta-titulo {{
@@ -91,15 +97,15 @@ st.markdown(
             font-size: 14px;
             font-weight: 700;
             margin-bottom: 13px;
-            min-height: 21px;
+            min-height: 20px;
         }}
 
         .tarjeta-valor {{
             color: #581629;
-            font-size: 27px;
+            font-size: 26px;
             font-weight: 800;
             line-height: 1.15;
-            word-break: break-word;
+            overflow-wrap: anywhere;
         }}
 
         .tarjeta-subtitulo {{
@@ -111,23 +117,27 @@ st.markdown(
         .bloque-informacion {{
             background-color: #FFFFFF;
             border-left: 5px solid {COLOR_PRINCIPAL};
-            border-radius: 5px;
-            padding: 14px 16px;
-            margin-top: 10px;
+            border-radius: 6px;
+            padding: 15px 17px;
+            min-height: 110px;
+            margin-top: 8px;
             margin-bottom: 10px;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+            box-sizing: border-box;
         }}
 
         .bloque-informacion-titulo {{
             color: {COLOR_PRINCIPAL};
             font-weight: 700;
             font-size: 14px;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
         }}
 
         .bloque-informacion-texto {{
             color: #344054;
             font-size: 15px;
+            line-height: 1.4;
+            overflow-wrap: anywhere;
         }}
 
         div[data-testid="stDataFrame"] {{
@@ -143,8 +153,8 @@ st.markdown(
         }}
 
         div[data-testid="stSelectbox"] label,
-        div[data-testid="stMultiSelect"] label {{
-            color: #5D172A;
+        div[data-testid="stTextInput"] label {{
+            color: #7A1E3A;
             font-weight: 650;
         }}
 
@@ -155,10 +165,29 @@ st.markdown(
         hr {{
             border-color: #E4E7EC;
         }}
+
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+
+# ============================================================
+# FUNCIONES DE RENDERIZADO
+# ============================================================
+
+def renderizar_html(contenido: str) -> None:
+    """
+    Renderiza HTML evitando que Streamlit lo muestre como código.
+    """
+
+    if hasattr(st, "html"):
+        st.html(contenido)
+    else:
+        st.markdown(
+            contenido,
+            unsafe_allow_html=True,
+        )
 
 
 # ============================================================
@@ -167,15 +196,16 @@ st.markdown(
 
 def obtener_carpeta_descargas() -> Path:
     """
-    Obtiene la carpeta Descargas del usuario en Windows.
+    Obtiene la carpeta Descargas del usuario.
     """
 
     user_profile = os.environ.get("USERPROFILE")
 
-    if user_profile:
-        carpeta_usuario = Path(user_profile)
-    else:
-        carpeta_usuario = Path.home()
+    carpeta_usuario = (
+        Path(user_profile)
+        if user_profile
+        else Path.home()
+    )
 
     carpeta_descargas = carpeta_usuario / "Downloads"
 
@@ -190,7 +220,8 @@ def obtener_carpeta_descargas() -> Path:
 
 def obtener_csv_mas_reciente() -> Path:
     """
-    Busca el CSV más reciente de elasticidad en Descargas.
+    Busca el archivo CSV de elasticidad más reciente
+    en la carpeta Descargas.
     """
 
     carpeta_descargas = obtener_carpeta_descargas()
@@ -213,10 +244,11 @@ def obtener_csv_mas_reciente() -> Path:
     )
 
 
-def preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+def preparar_dataframe(
+    df: pd.DataFrame,
+) -> pd.DataFrame:
     """
-    Normaliza los principales tipos de datos usados
-    por el dashboard.
+    Normaliza los tipos de datos usados en el dashboard.
     """
 
     df = df.copy()
@@ -242,12 +274,16 @@ def preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         "AdConfianzaReferenciaMercado",
         "AdUsoReferenciaMercado",
         "AdUniversidadCompetidoraRef",
+        "AdUniversidadCompetidorMinimo",
         "AdResultadoCompetitividadFinal",
         "AdMotivoBecaFinal",
+        "AdEstadoIngreso",
     ]
 
     for columna in columnas_texto:
+
         if columna in df.columns:
+
             df[columna] = (
                 df[columna]
                 .astype("string")
@@ -262,13 +298,27 @@ def preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
                 )
             )
 
+            if columna in {
+                "AdPeriodo",
+                "AdIdentificacion",
+                "AdLeadContacto",
+                "AdCodCarrera",
+            }:
+                df[columna] = df[columna].str.replace(
+                    r"\.0$",
+                    "",
+                    regex=True,
+                )
+
     columnas_fecha = [
         "AdFechaActualizacion",
         "AudFechaCarga",
     ]
 
     for columna in columnas_fecha:
+
         if columna in df.columns:
+
             df[columna] = pd.to_datetime(
                 df[columna],
                 errors="coerce",
@@ -301,10 +351,14 @@ def preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         "AdCostoUDLAConBecaUpper",
         "AdCostoUDLAConBecaFinal",
         "AdGapFinalVsMercado",
+        "AdGapPostBecaMercado",
+        "AdGapPostBecaCompetidorMinimo",
     ]
 
     for columna in columnas_numericas:
+
         if columna in df.columns:
+
             df[columna] = pd.to_numeric(
                 df[columna],
                 errors="coerce",
@@ -313,16 +367,15 @@ def preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-@st.cache_data(show_spinner="Cargando información local...")
+@st.cache_data(
+    show_spinner="Cargando información local..."
+)
 def cargar_datos_desde_ruta(
     ruta_archivo: str,
     fecha_modificacion: float,
 ) -> pd.DataFrame:
     """
-    Carga un CSV desde una ruta local.
-
-    fecha_modificacion se utiliza para actualizar
-    automáticamente la memoria caché.
+    Carga el CSV desde una ruta local.
     """
 
     del fecha_modificacion
@@ -331,23 +384,37 @@ def cargar_datos_desde_ruta(
         ruta_archivo,
         low_memory=False,
         encoding="utf-8-sig",
+        dtype={
+            "AdPeriodo": "string",
+            "AdIdentificacion": "string",
+            "AdLeadContacto": "string",
+            "AdCodCarrera": "string",
+        },
     )
 
     return preparar_dataframe(df)
 
 
-@st.cache_data(show_spinner="Procesando archivo cargado...")
+@st.cache_data(
+    show_spinner="Procesando archivo cargado..."
+)
 def cargar_datos_desde_bytes(
     contenido: bytes,
 ) -> pd.DataFrame:
     """
-    Carga un CSV enviado mediante file_uploader.
+    Carga un archivo CSV enviado desde el navegador.
     """
 
     df = pd.read_csv(
         BytesIO(contenido),
         low_memory=False,
         encoding="utf-8-sig",
+        dtype={
+            "AdPeriodo": "string",
+            "AdIdentificacion": "string",
+            "AdLeadContacto": "string",
+            "AdCodCarrera": "string",
+        },
     )
 
     return preparar_dataframe(df)
@@ -357,16 +424,21 @@ def cargar_datos_desde_bytes(
 # FUNCIONES DE FORMATO
 # ============================================================
 
-def es_nulo(valor: Any) -> bool:
+def es_nulo(
+    valor: Any,
+) -> bool:
     """
-    Comprueba si un valor es nulo sin generar errores
-    con tipos especiales de pandas.
+    Comprueba si un valor es nulo.
     """
 
     try:
+
         resultado = pd.isna(valor)
 
-        if isinstance(resultado, (bool, np.bool_)):
+        if isinstance(
+            resultado,
+            (bool, np.bool_),
+        ):
             return bool(resultado)
 
         return False
@@ -380,7 +452,7 @@ def valor_texto(
     defecto: str = "Sin información",
 ) -> str:
     """
-    Convierte un valor en texto para mostrarlo.
+    Convierte un valor en texto.
     """
 
     if es_nulo(valor):
@@ -388,7 +460,10 @@ def valor_texto(
 
     texto = str(valor).strip()
 
-    if not texto or texto.lower() in {
+    if not texto:
+        return defecto
+
+    if texto.lower() in {
         "nan",
         "none",
         "<na>",
@@ -398,9 +473,11 @@ def valor_texto(
     return texto
 
 
-def formato_moneda(valor: Any) -> str:
+def formato_moneda(
+    valor: Any,
+) -> str:
     """
-    Formatea valores monetarios con formato latino.
+    Formatea un valor monetario.
     """
 
     if es_nulo(valor):
@@ -422,9 +499,11 @@ def formato_moneda(valor: Any) -> str:
     )
 
 
-def formato_porcentaje(valor: Any) -> str:
+def formato_porcentaje(
+    valor: Any,
+) -> str:
     """
-    Convierte una proporción decimal a porcentaje.
+    Convierte una proporción decimal en porcentaje.
     """
 
     if es_nulo(valor):
@@ -452,31 +531,36 @@ def crear_tarjeta(
     subtitulo: str = "",
 ) -> None:
     """
-    Muestra una tarjeta con formato institucional.
+    Crea una tarjeta institucional.
     """
 
-    titulo_seguro = html.escape(valor_texto(titulo, ""))
-    valor_seguro = html.escape(valor_texto(valor))
-    subtitulo_seguro = html.escape(valor_texto(subtitulo, ""))
-
-    st.markdown(
-        f"""
-        <div class="tarjeta">
-            <div class="tarjeta-titulo">
-                {titulo_seguro}
-            </div>
-
-            <div class="tarjeta-valor">
-                {valor_seguro}
-            </div>
-
-            <div class="tarjeta-subtitulo">
-                {subtitulo_seguro}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    titulo_seguro = html.escape(
+        valor_texto(titulo, "")
     )
+
+    valor_seguro = html.escape(
+        valor_texto(valor)
+    )
+
+    subtitulo_seguro = html.escape(
+        valor_texto(subtitulo, "")
+    )
+
+    contenido = (
+        f'<div class="tarjeta">'
+        f'<div class="tarjeta-titulo">'
+        f'{titulo_seguro}'
+        f'</div>'
+        f'<div class="tarjeta-valor">'
+        f'{valor_seguro}'
+        f'</div>'
+        f'<div class="tarjeta-subtitulo">'
+        f'{subtitulo_seguro}'
+        f'</div>'
+        f'</div>'
+    )
+
+    renderizar_html(contenido)
 
 
 def crear_bloque_informacion(
@@ -484,23 +568,29 @@ def crear_bloque_informacion(
     texto: str,
 ) -> None:
     """
-    Muestra una sección breve de información.
+    Crea un bloque informativo.
     """
 
-    st.markdown(
-        f"""
-        <div class="bloque-informacion">
-            <div class="bloque-informacion-titulo">
-                {html.escape(valor_texto(titulo, ""))}
-            </div>
-
-            <div class="bloque-informacion-texto">
-                {html.escape(valor_texto(texto))}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    titulo_seguro = html.escape(
+        valor_texto(titulo, "")
     )
+
+    texto_seguro = html.escape(
+        valor_texto(texto)
+    )
+
+    contenido = (
+        f'<div class="bloque-informacion">'
+        f'<div class="bloque-informacion-titulo">'
+        f'{titulo_seguro}'
+        f'</div>'
+        f'<div class="bloque-informacion-texto">'
+        f'{texto_seguro}'
+        f'</div>'
+        f'</div>'
+    )
+
+    renderizar_html(contenido)
 
 
 def opciones_columna(
@@ -508,7 +598,7 @@ def opciones_columna(
     columna: str,
 ) -> list[str]:
     """
-    Devuelve opciones únicas ordenadas para un filtro.
+    Devuelve las opciones únicas y ordenadas de una columna.
     """
 
     if columna not in dataframe.columns:
@@ -538,21 +628,23 @@ def filtrar_por_valor(
     valor_todos: str,
 ) -> pd.DataFrame:
     """
-    Aplica un filtro de igualdad a una columna.
+    Aplica un filtro por igualdad.
     """
 
-    if (
-        columna not in dataframe.columns
-        or valor == valor_todos
-    ):
+    if columna not in dataframe.columns:
         return dataframe
 
-    return dataframe[
+    if valor == valor_todos:
+        return dataframe
+
+    mascara = (
         dataframe[columna]
         .astype("string")
         .eq(str(valor))
         .fillna(False)
-    ]
+    )
+
+    return dataframe[mascara]
 
 
 def obtener_numero(
@@ -560,14 +652,16 @@ def obtener_numero(
     columna: str,
 ) -> float | None:
     """
-    Obtiene un número desde una fila.
+    Obtiene un valor numérico desde una fila.
     """
 
     if columna not in registro.index:
         return None
 
     valor = pd.to_numeric(
-        pd.Series([registro[columna]]),
+        pd.Series(
+            [registro[columna]]
+        ),
         errors="coerce",
     ).iloc[0]
 
@@ -577,11 +671,129 @@ def obtener_numero(
     return float(valor)
 
 
+def obtener_primer_valor(
+    registro: pd.Series,
+    columnas: list[str],
+    defecto: str = "Sin información",
+) -> str:
+    """
+    Devuelve el primer valor disponible entre varias columnas.
+    """
+
+    for columna in columnas:
+
+        if columna in registro.index:
+
+            valor = valor_texto(
+                registro.get(columna),
+                "",
+            )
+
+            if valor:
+                return valor
+
+    return defecto
+
+
+# ============================================================
+# FUNCIONES DE BÚSQUEDA
+# ============================================================
+
+def normalizar_texto_busqueda(
+    valor: Any,
+) -> str:
+    """
+    Convierte un valor a texto, elimina tildes
+    y transforma a minúsculas.
+    """
+
+    if es_nulo(valor):
+        return ""
+
+    texto = str(valor).strip()
+
+    texto = unicodedata.normalize(
+        "NFKD",
+        texto,
+    )
+
+    texto = "".join(
+        caracter
+        for caracter in texto
+        if not unicodedata.combining(caracter)
+    )
+
+    return texto.casefold()
+
+
+def aplicar_busqueda_general(
+    dataframe: pd.DataFrame,
+    texto_busqueda: str,
+) -> pd.DataFrame:
+    """
+    Busca simultáneamente en los principales campos
+    de cada postulante.
+    """
+
+    if not texto_busqueda:
+        return dataframe
+
+    if not texto_busqueda.strip():
+        return dataframe
+
+    columnas_busqueda = [
+        "AdIdentificacion",
+        "AdNombreCompleto",
+        "AdEmail",
+        "AdCarrera",
+        "AdCarreraHomologada",
+        "AdAsesorNombre",
+        "AdAsesorCorreo",
+        "AdLeadContacto",
+        "AdCodCarrera",
+        "AdNivelSocioec",
+        "AdRangoDeNegociacion",
+    ]
+
+    columnas_disponibles = [
+        columna
+        for columna in columnas_busqueda
+        if columna in dataframe.columns
+    ]
+
+    if not columnas_disponibles:
+        return dataframe
+
+    consulta_normalizada = (
+        normalizar_texto_busqueda(
+            texto_busqueda
+        )
+    )
+
+    texto_por_fila = (
+        dataframe[columnas_disponibles]
+        .fillna("")
+        .astype(str)
+        .agg(" | ".join, axis=1)
+        .map(normalizar_texto_busqueda)
+    )
+
+    mascara = texto_por_fila.str.contains(
+        consulta_normalizada,
+        regex=False,
+        na=False,
+    )
+
+    return dataframe[mascara]
+
+
 # ============================================================
 # CARGA DE DATOS
 # ============================================================
 
-st.sidebar.header("Base de elasticidad")
+st.sidebar.header(
+    "Base de elasticidad"
+)
 
 archivo_subido = st.sidebar.file_uploader(
     "Cargar archivo CSV",
@@ -594,32 +806,42 @@ archivo_subido = st.sidebar.file_uploader(
 
 st.sidebar.caption(
     "En ejecución local, si no cargas un archivo, "
-    "se buscará automáticamente el CSV más reciente "
-    "en la carpeta Descargas."
+    "el sistema buscará automáticamente el CSV "
+    "más reciente en la carpeta Descargas."
 )
 
 if archivo_subido is not None:
 
     try:
-        contenido_archivo = archivo_subido.getvalue()
+
+        contenido_archivo = (
+            archivo_subido.getvalue()
+        )
 
         df = cargar_datos_desde_bytes(
             contenido_archivo
         )
 
         nombre_fuente = archivo_subido.name
-        tipo_fuente = "Archivo cargado manualmente"
+
+        tipo_fuente = (
+            "Archivo cargado manualmente"
+        )
 
     except Exception as error:
+
         st.error(
             "No fue posible leer el archivo cargado."
         )
+
         st.exception(error)
+
         st.stop()
 
 else:
 
     try:
+
         ruta_csv = obtener_csv_mas_reciente()
 
         df = cargar_datos_desde_ruta(
@@ -628,19 +850,28 @@ else:
         )
 
         nombre_fuente = ruta_csv.name
-        tipo_fuente = "Archivo local en Descargas"
+
+        tipo_fuente = (
+            "Archivo local en Descargas"
+        )
 
     except Exception:
+
         st.info(
             "No se encontró una base local. "
             "Carga el CSV desde el panel lateral "
             "para visualizar el dashboard."
         )
+
         st.stop()
 
 
 if df.empty:
-    st.warning("La base cargada no contiene registros.")
+
+    st.warning(
+        "La base cargada no contiene registros."
+    )
+
     st.stop()
 
 
@@ -648,23 +879,19 @@ if df.empty:
 # ENCABEZADO
 # ============================================================
 
-st.markdown(
+renderizar_html(
     '<div class="titulo-principal">'
     'ELASTICIDAD DE COSTOS'
-    '</div>',
-    unsafe_allow_html=True,
+    '</div>'
 )
 
-st.markdown(
-    f"""
-    <div class="subtitulo-principal">
-        {html.escape(tipo_fuente)}:
-        <strong>{html.escape(nombre_fuente)}</strong>
-        · {len(df):,} registros
-        · {len(df.columns)} variables
-    </div>
-    """,
-    unsafe_allow_html=True,
+renderizar_html(
+    '<div class="subtitulo-principal">'
+    f'{html.escape(tipo_fuente)}: '
+    f'<strong>{html.escape(nombre_fuente)}</strong>'
+    f' · {len(df):,} registros'
+    f' · {len(df.columns)} variables'
+    '</div>'
 )
 
 
@@ -678,6 +905,18 @@ with st.container(border=True):
         "### Filtros de consulta"
     )
 
+    busqueda_general = st.text_input(
+        "Buscar postulante",
+        placeholder=(
+            "Escribe nombre, identificación, correo, carrera, "
+            "consultor, código de carrera o lead..."
+        ),
+        help=(
+            "La búsqueda ignora mayúsculas, minúsculas y tildes."
+        ),
+        key="busqueda_general",
+    )
+
     (
         col_periodo,
         col_asesor,
@@ -686,7 +925,14 @@ with st.container(border=True):
         col_cerrado,
         col_carrera,
     ) = st.columns(
-        [1, 1.8, 1.4, 1.8, 1.15, 1.6]
+        [
+            1,
+            1.8,
+            1.4,
+            1.8,
+            1.15,
+            1.6,
+        ]
     )
 
     with col_periodo:
@@ -698,7 +944,9 @@ with st.container(border=True):
 
         filtro_periodo = st.selectbox(
             "Periodo",
-            options=["Todos"] + opciones_periodo,
+            options=[
+                "Todos"
+            ] + opciones_periodo,
         )
 
     with col_asesor:
@@ -710,7 +958,9 @@ with st.container(border=True):
 
         filtro_asesor = st.selectbox(
             "Consultor cierre",
-            options=["Todos"] + opciones_asesor,
+            options=[
+                "Todos"
+            ] + opciones_asesor,
             disabled=not opciones_asesor,
         )
 
@@ -723,7 +973,9 @@ with st.container(border=True):
 
         filtro_identificacion = st.selectbox(
             "Identificación",
-            options=["Todas"] + opciones_identificacion,
+            options=[
+                "Todas"
+            ] + opciones_identificacion,
             disabled=not opciones_identificacion,
         )
 
@@ -736,7 +988,9 @@ with st.container(border=True):
 
         filtro_email = st.selectbox(
             "E-mail",
-            options=["Todos"] + opciones_email,
+            options=[
+                "Todos"
+            ] + opciones_email,
             disabled=not opciones_email,
         )
 
@@ -760,7 +1014,9 @@ with st.container(border=True):
 
         filtro_carrera = st.selectbox(
             "Carrera",
-            options=["Todas"] + opciones_carrera,
+            options=[
+                "Todas"
+            ] + opciones_carrera,
             disabled=not opciones_carrera,
         )
 
@@ -770,6 +1026,11 @@ with st.container(border=True):
 # ============================================================
 
 df_filtrado = df.copy()
+
+df_filtrado = aplicar_busqueda_general(
+    df_filtrado,
+    busqueda_general,
+)
 
 df_filtrado = filtrar_por_valor(
     df_filtrado,
@@ -817,23 +1078,30 @@ if (
         else 0
     )
 
+    valores_cerrados = pd.to_numeric(
+        df_filtrado["AdIndCerrado"],
+        errors="coerce",
+    )
+
     df_filtrado = df_filtrado[
-        pd.to_numeric(
-            df_filtrado["AdIndCerrado"],
-            errors="coerce",
-        ).eq(valor_cerrado)
+        valores_cerrados.eq(
+            valor_cerrado
+        )
     ]
 
 
 if df_filtrado.empty:
+
     st.warning(
-        "No existen registros para los filtros seleccionados."
+        "No existen registros para los filtros "
+        "o la búsqueda seleccionada."
     )
+
     st.stop()
 
 
 # ============================================================
-# SELECCIÓN DEL REGISTRO PARA EL DETALLE
+# SELECCIÓN DEL REGISTRO
 # ============================================================
 
 df_detalle = (
@@ -850,19 +1118,28 @@ df_detalle = (
 def crear_etiqueta_registro(
     fila: pd.Series,
 ) -> str:
+    """
+    Construye la etiqueta mostrada en el selector.
+    """
 
     identificacion = valor_texto(
-        fila.get("AdIdentificacion"),
+        fila.get(
+            "AdIdentificacion"
+        ),
         "Sin identificación",
     )
 
     nombre = valor_texto(
-        fila.get("AdNombreCompleto"),
+        fila.get(
+            "AdNombreCompleto"
+        ),
         "Sin nombre",
     )
 
     carrera = valor_texto(
-        fila.get("AdCarrera"),
+        fila.get(
+            "AdCarrera"
+        ),
         "Sin carrera",
     )
 
@@ -880,11 +1157,20 @@ etiquetas_registro = [
 
 indice_detalle = st.selectbox(
     "Registro para visualizar el detalle",
-    options=list(range(len(df_detalle))),
-    format_func=lambda indice: etiquetas_registro[indice],
+    options=list(
+        range(
+            len(df_detalle)
+        )
+    ),
+    index=0,
+    format_func=lambda indice: (
+        etiquetas_registro[indice]
+    ),
 )
 
-registro = df_detalle.iloc[indice_detalle]
+registro = df_detalle.iloc[
+    indice_detalle
+]
 
 
 # ============================================================
@@ -894,39 +1180,57 @@ registro = df_detalle.iloc[indice_detalle]
 if "AdIdentificacion" in df_filtrado.columns:
 
     cantidad_postulantes = (
-        df_filtrado["AdIdentificacion"]
-        .nunique(dropna=True)
+        df_filtrado[
+            "AdIdentificacion"
+        ]
+        .nunique(
+            dropna=True
+        )
     )
 
 else:
-    cantidad_postulantes = len(df_filtrado)
+
+    cantidad_postulantes = len(
+        df_filtrado
+    )
 
 
 if "AdDiasSinGestion" in df_filtrado.columns:
 
     promedio_dias = pd.to_numeric(
-        df_filtrado["AdDiasSinGestion"],
+        df_filtrado[
+            "AdDiasSinGestion"
+        ],
         errors="coerce",
     ).mean()
 
 else:
+
     promedio_dias = np.nan
 
 
 nivel_socioeconomico = valor_texto(
-    registro.get("AdNivelSocioec")
+    registro.get(
+        "AdNivelSocioec"
+    )
 )
 
 rango_negociacion = valor_texto(
-    registro.get("AdRangoDeNegociacion")
+    registro.get(
+        "AdRangoDeNegociacion"
+    )
 )
 
 beca_recomendada = formato_porcentaje(
-    registro.get("AdBecaRecomendada")
+    registro.get(
+        "AdBecaRecomendada"
+    )
 )
 
 beca_final = formato_porcentaje(
-    registro.get("AdBecaFinalSugerida")
+    registro.get(
+        "AdBecaFinalSugerida"
+    )
 )
 
 
@@ -944,6 +1248,7 @@ beca_final = formato_porcentaje(
 ) = st.columns(6)
 
 with tarjeta_1:
+
     crear_tarjeta(
         titulo="Nivel socioeconómico",
         valor=nivel_socioeconomico,
@@ -951,6 +1256,7 @@ with tarjeta_1:
     )
 
 with tarjeta_2:
+
     crear_tarjeta(
         titulo="Rango de negociación",
         valor=rango_negociacion,
@@ -958,6 +1264,7 @@ with tarjeta_2:
     )
 
 with tarjeta_3:
+
     crear_tarjeta(
         titulo="Cantidad de postulantes",
         valor=f"{cantidad_postulantes:,}",
@@ -965,17 +1272,21 @@ with tarjeta_3:
     )
 
 with tarjeta_4:
+
     crear_tarjeta(
         titulo="Promedio días sin gestión",
         valor=(
             f"{promedio_dias:.0f}"
-            if pd.notna(promedio_dias)
+            if pd.notna(
+                promedio_dias
+            )
             else "Sin información"
         ),
         subtitulo="Seguimiento comercial",
     )
 
 with tarjeta_5:
+
     crear_tarjeta(
         titulo="Beca recomendada",
         valor=beca_recomendada,
@@ -983,6 +1294,7 @@ with tarjeta_5:
     )
 
 with tarjeta_6:
+
     crear_tarjeta(
         titulo="Beca final sugerida",
         valor=beca_final,
@@ -991,7 +1303,7 @@ with tarjeta_6:
 
 
 # ============================================================
-# PESTAÑAS PRINCIPALES
+# PESTAÑAS
 # ============================================================
 
 tab_detalle, tab_resumen = st.tabs(
@@ -1008,7 +1320,9 @@ tab_detalle, tab_resumen = st.tabs(
 
 with tab_detalle:
 
-    st.subheader("Información comercial")
+    st.subheader(
+        "Información comercial"
+    )
 
     (
         columna_estado,
@@ -1055,28 +1369,34 @@ with tab_detalle:
         )
     )
 
-    if (
+    resultado_normalizado = (
         resultado_competitivo
-        == "Iguala o mejora la referencia de mercado"
+        .strip()
+        .lower()
+    )
+
+    if (
+        "iguala" in resultado_normalizado
+        or "mejora" in resultado_normalizado
     ):
+
         st.success(
             "La beca final permite igualar o mejorar "
             "la referencia de mercado."
         )
 
-    elif (
-        resultado_competitivo
-        == "Permanece por encima de la referencia de mercado"
-    ):
+    elif "por encima" in resultado_normalizado:
+
         st.warning(
-            "La propuesta permanece por encima de la "
-            "referencia de mercado."
+            "La propuesta permanece por encima "
+            "de la referencia de mercado."
         )
 
     else:
+
         st.info(
-            "No existe información suficiente para determinar "
-            "la competitividad final de este registro."
+            "No existe información suficiente para "
+            "determinar la competitividad final."
         )
 
     st.divider()
@@ -1085,7 +1405,9 @@ with tab_detalle:
     # COMPARACIÓN DE COSTOS
     # --------------------------------------------------------
 
-    st.subheader("Comparación de costos")
+    st.subheader(
+        "Comparación de costos"
+    )
 
     valores_costos = [
         (
@@ -1131,13 +1453,19 @@ with tab_detalle:
                 "Escenario": escenario,
                 "Costo": costo,
             }
-            for escenario, costo in valores_costos
+            for escenario, costo
+            in valores_costos
             if costo is not None
         ]
     )
 
     columna_grafico, columna_detalle_costos = (
-        st.columns([1.6, 1])
+        st.columns(
+            [
+                1.6,
+                1,
+            ]
+        )
     )
 
     with columna_grafico:
@@ -1151,34 +1479,47 @@ with tab_detalle:
 
         else:
 
+            colores_costos = [
+                "#7A7F87",
+                "#B38B98",
+                COLOR_OSCURO,
+                COLOR_MEDIO,
+                COLOR_PRINCIPAL,
+            ]
+
             figura_costos = go.Figure()
 
             figura_costos.add_trace(
                 go.Bar(
-                    x=datos_costos["Escenario"],
-                    y=datos_costos["Costo"],
+                    x=datos_costos[
+                        "Escenario"
+                    ],
+                    y=datos_costos[
+                        "Costo"
+                    ],
                     text=[
                         formato_moneda(valor)
-                        for valor in datos_costos["Costo"]
+                        for valor
+                        in datos_costos[
+                            "Costo"
+                        ]
                     ],
                     textposition="outside",
-                    marker_color=[
-                        "#7A7F87",
-                        "#B38B98",
-                        COLOR_OSCURO,
-                        COLOR_MEDIO,
-                        COLOR_PRINCIPAL,
-                    ][: len(datos_costos)],
+                    marker_color=(
+                        colores_costos[
+                            :len(datos_costos)
+                        ]
+                    ),
                 )
             )
 
             figura_costos.update_layout(
-                height=430,
+                height=440,
                 margin=dict(
                     l=20,
                     r=20,
-                    t=30,
-                    b=100,
+                    t=50,
+                    b=120,
                 ),
                 yaxis_title="Costo total",
                 xaxis_title="",
@@ -1198,61 +1539,74 @@ with tab_detalle:
 
     with columna_detalle_costos:
 
-        matricula_udla = registro.get(
-            "AdMatriculaUDLA"
-        )
-
-        arancel_udla = registro.get(
-            "AdArancelUDLA"
-        )
-
-        costo_udla = registro.get(
-            "AdCostoInstitucion"
-        )
-
-        costo_post_beca = registro.get(
-            "AdCostoUDLAConBecaFinal"
-        )
-
-        gap_final = registro.get(
-            "AdGapFinalVsMercado"
-        )
-
         st.metric(
             "Matrícula UDLA",
-            formato_moneda(matricula_udla),
+            formato_moneda(
+                registro.get(
+                    "AdMatriculaUDLA"
+                )
+            ),
         )
 
         st.metric(
             "Arancel UDLA",
-            formato_moneda(arancel_udla),
+            formato_moneda(
+                registro.get(
+                    "AdArancelUDLA"
+                )
+            ),
         )
 
         st.metric(
             "Total UDLA sin beca",
-            formato_moneda(costo_udla),
+            formato_moneda(
+                registro.get(
+                    "AdCostoInstitucion"
+                )
+            ),
         )
 
         st.metric(
             "Total UDLA con beca final",
-            formato_moneda(costo_post_beca),
+            formato_moneda(
+                registro.get(
+                    "AdCostoUDLAConBecaFinal"
+                )
+            ),
         )
 
         st.metric(
             "Brecha final frente al mercado",
-            formato_moneda(gap_final),
+            formato_moneda(
+                registro.get(
+                    "AdGapFinalVsMercado"
+                )
+            ),
         )
 
     # --------------------------------------------------------
     # REFERENCIA COMPETITIVA
     # --------------------------------------------------------
 
-    st.subheader("Referencia competitiva utilizada")
+    st.subheader(
+        "Referencia competitiva utilizada"
+    )
 
-    universidad_competidora = valor_texto(
-        registro.get(
-            "AdUniversidadCompetidoraRef"
-        )
+    universidad_referencia = obtener_primer_valor(
+        registro,
+        [
+            "AdUniversidadCompetidoraRef",
+            "AdUniversidadReferenciaMercado",
+        ],
+    )
+
+    universidad_minima = obtener_primer_valor(
+        registro,
+        [
+            "AdUniversidadCompetidorMinimo",
+            "AdUniversidadCompetidoraMin",
+            "AdUniversidadCompetidoraRef",
+        ],
     )
 
     referencia_competitiva = pd.DataFrame(
@@ -1262,8 +1616,8 @@ with tab_detalle:
                 "Competidor más económico",
             ],
             "Universidad": [
-                universidad_competidora,
-                universidad_competidora,
+                universidad_referencia,
+                universidad_minima,
             ],
             "Fuente": [
                 valor_texto(
@@ -1291,9 +1645,11 @@ with tab_detalle:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Costo": st.column_config.NumberColumn(
-                "Costo",
-                format="$ %.2f",
+            "Costo": (
+                st.column_config.NumberColumn(
+                    "Costo",
+                    format="$ %.2f",
+                )
             ),
         },
     )
@@ -1302,7 +1658,9 @@ with tab_detalle:
     # TABLA DE POSTULANTES
     # --------------------------------------------------------
 
-    st.subheader("Detalle de postulantes")
+    st.subheader(
+        "Detalle de postulantes"
+    )
 
     mapa_columnas_tabla = {
         "AdAsesorNombre": "Consultor cierre",
@@ -1327,8 +1685,10 @@ with tab_detalle:
 
     columnas_tabla_disponibles = [
         columna
-        for columna in mapa_columnas_tabla
-        if columna in df_filtrado.columns
+        for columna
+        in mapa_columnas_tabla
+        if columna
+        in df_filtrado.columns
     ]
 
     tabla_postulantes = (
@@ -1352,9 +1712,13 @@ with tab_detalle:
 
         if columna in tabla_postulantes.columns:
 
-            tabla_postulantes[columna] = (
+            tabla_postulantes[
+                columna
+            ] = (
                 pd.to_numeric(
-                    tabla_postulantes[columna],
+                    tabla_postulantes[
+                        columna
+                    ],
                     errors="coerce",
                 )
                 * 100
@@ -1366,7 +1730,9 @@ with tab_detalle:
 
         if columna in tabla_postulantes.columns:
 
-            configuracion_columnas[columna] = (
+            configuracion_columnas[
+                columna
+            ] = (
                 st.column_config.NumberColumn(
                     columna,
                     format="%.2f %%",
@@ -1381,20 +1747,27 @@ with tab_detalle:
 
         if columna in tabla_postulantes.columns:
 
-            configuracion_columnas[columna] = (
+            configuracion_columnas[
+                columna
+            ] = (
                 st.column_config.NumberColumn(
                     columna,
                     format="$ %.2f",
                 )
             )
 
-    if "Días sin gestión" in tabla_postulantes.columns:
+    if (
+        "Días sin gestión"
+        in tabla_postulantes.columns
+    ):
 
         configuracion_columnas[
             "Días sin gestión"
-        ] = st.column_config.NumberColumn(
-            "Días sin gestión",
-            format="%.0f",
+        ] = (
+            st.column_config.NumberColumn(
+                "Días sin gestión",
+                format="%.0f",
+            )
         )
 
     st.dataframe(
@@ -1406,8 +1779,10 @@ with tab_detalle:
     )
 
     st.caption(
-        f"Registros filtrados: {len(df_filtrado):,} · "
-        f"Postulantes distintos: {cantidad_postulantes:,}"
+        f"Registros filtrados: "
+        f"{len(df_filtrado):,} · "
+        f"Postulantes distintos: "
+        f"{cantidad_postulantes:,}"
     )
 
 
@@ -1417,51 +1792,61 @@ with tab_detalle:
 
 with tab_resumen:
 
-    st.subheader("Indicadores generales")
+    st.subheader(
+        "Indicadores generales"
+    )
 
-    total_registros = len(df_filtrado)
+    total_registros = len(
+        df_filtrado
+    )
+
+    serie_beca_ajustada = df_filtrado.get(
+        "AdBecaFueAjustada",
+        pd.Series(
+            0,
+            index=df_filtrado.index,
+        ),
+    )
 
     total_becas_ajustadas = (
         pd.to_numeric(
-            df_filtrado.get(
-                "AdBecaFueAjustada",
-                pd.Series(
-                    0,
-                    index=df_filtrado.index,
-                ),
-            ),
+            serie_beca_ajustada,
             errors="coerce",
         )
         .fillna(0)
         .eq(1)
         .sum()
+    )
+
+    serie_validar_ingreso = df_filtrado.get(
+        "AdRequiereValidarIngreso",
+        pd.Series(
+            0,
+            index=df_filtrado.index,
+        ),
     )
 
     total_validar_ingreso = (
         pd.to_numeric(
-            df_filtrado.get(
-                "AdRequiereValidarIngreso",
-                pd.Series(
-                    0,
-                    index=df_filtrado.index,
-                ),
-            ),
+            serie_validar_ingreso,
             errors="coerce",
         )
         .fillna(0)
         .eq(1)
         .sum()
+    )
+
+    serie_revision_comercial = df_filtrado.get(
+        "AdRequiereRevisionComercial",
+        pd.Series(
+            0,
+            index=df_filtrado.index,
+        ),
     )
 
     total_revision_comercial = (
         pd.to_numeric(
-            df_filtrado.get(
-                "AdRequiereRevisionComercial",
-                pd.Series(
-                    0,
-                    index=df_filtrado.index,
-                ),
-            ),
+            serie_revision_comercial,
             errors="coerce",
         )
         .fillna(0)
@@ -1469,21 +1854,39 @@ with tab_resumen:
         .sum()
     )
 
-    cobertura_mercado = (
-        df_filtrado["AdCostoRefMercado"]
-        .notna()
-        .mean()
-        if "AdCostoRefMercado" in df_filtrado.columns
-        else np.nan
-    )
+    if (
+        "AdCostoRefMercado"
+        in df_filtrado.columns
+    ):
 
-    cobertura_tarifa = (
-        df_filtrado["AdArancelUDLA"]
-        .notna()
-        .mean()
-        if "AdArancelUDLA" in df_filtrado.columns
-        else np.nan
-    )
+        cobertura_mercado = (
+            df_filtrado[
+                "AdCostoRefMercado"
+            ]
+            .notna()
+            .mean()
+        )
+
+    else:
+
+        cobertura_mercado = np.nan
+
+    if (
+        "AdArancelUDLA"
+        in df_filtrado.columns
+    ):
+
+        cobertura_tarifa = (
+            df_filtrado[
+                "AdArancelUDLA"
+            ]
+            .notna()
+            .mean()
+        )
+
+    else:
+
+        cobertura_tarifa = np.nan
 
     (
         metrica_1,
@@ -1523,7 +1926,9 @@ with tab_resumen:
         "Cobertura de mercado",
         (
             f"{cobertura_mercado:.1%}"
-            if pd.notna(cobertura_mercado)
+            if pd.notna(
+                cobertura_mercado
+            )
             else "Sin información"
         ),
     )
@@ -1532,7 +1937,9 @@ with tab_resumen:
         "Cobertura de tarifas UDLA: "
         + (
             f"{cobertura_tarifa:.1%}"
-            if pd.notna(cobertura_tarifa)
+            if pd.notna(
+                cobertura_tarifa
+            )
             else "Sin información"
         )
     )
@@ -1562,10 +1969,20 @@ with tab_resumen:
                 df_filtrado[
                     "AdResultadoCompetitividadFinal"
                 ]
-                .fillna("Sin información")
+                .fillna(
+                    "Sin información"
+                )
                 .value_counts()
-                .rename_axis("Resultado")
-                .reset_index(name="Cantidad")
+                .rename_axis(
+                    "Resultado"
+                )
+                .reset_index(
+                    name="Cantidad"
+                )
+                .sort_values(
+                    "Cantidad",
+                    ascending=True,
+                )
             )
 
             figura_resultado = px.bar(
@@ -1623,14 +2040,25 @@ with tab_resumen:
             "Distribución socioeconómica"
         )
 
-        if "AdNivelSocioec" in df_filtrado.columns:
+        if (
+            "AdNivelSocioec"
+            in df_filtrado.columns
+        ):
 
             resumen_nivel = (
-                df_filtrado["AdNivelSocioec"]
-                .fillna("Sin información")
+                df_filtrado[
+                    "AdNivelSocioec"
+                ]
+                .fillna(
+                    "Sin información"
+                )
                 .value_counts()
-                .rename_axis("Nivel")
-                .reset_index(name="Cantidad")
+                .rename_axis(
+                    "Nivel"
+                )
+                .reset_index(
+                    name="Cantidad"
+                )
             )
 
             figura_nivel = px.pie(
@@ -1676,7 +2104,7 @@ with tab_resumen:
     )
 
     # --------------------------------------------------------
-    # TOP CARRERAS
+    # TOP DE CARRERAS
     # --------------------------------------------------------
 
     with columna_grafico_3:
@@ -1685,15 +2113,26 @@ with tab_resumen:
             "Carreras con más postulantes"
         )
 
-        if "AdCarrera" in df_filtrado.columns:
+        if (
+            "AdCarrera"
+            in df_filtrado.columns
+        ):
 
             resumen_carreras = (
-                df_filtrado["AdCarrera"]
-                .fillna("Sin carrera")
+                df_filtrado[
+                    "AdCarrera"
+                ]
+                .fillna(
+                    "Sin carrera"
+                )
                 .value_counts()
                 .head(10)
-                .rename_axis("Carrera")
-                .reset_index(name="Cantidad")
+                .rename_axis(
+                    "Carrera"
+                )
+                .reset_index(
+                    name="Cantidad"
+                )
                 .sort_values(
                     "Cantidad",
                     ascending=True,
@@ -1736,11 +2175,11 @@ with tab_resumen:
         else:
 
             st.info(
-                "No está disponible la carrera."
+                "No está disponible la variable carrera."
             )
 
     # --------------------------------------------------------
-    # MOTIVOS DE LA BECA FINAL
+    # MOTIVOS DE BECA FINAL
     # --------------------------------------------------------
 
     with columna_grafico_4:
@@ -1749,15 +2188,26 @@ with tab_resumen:
             "Decisión final sobre la beca"
         )
 
-        if "AdMotivoBecaFinal" in df_filtrado.columns:
+        if (
+            "AdMotivoBecaFinal"
+            in df_filtrado.columns
+        ):
 
             resumen_motivos = (
-                df_filtrado["AdMotivoBecaFinal"]
-                .fillna("Sin información")
+                df_filtrado[
+                    "AdMotivoBecaFinal"
+                ]
+                .fillna(
+                    "Sin información"
+                )
                 .value_counts()
                 .head(10)
-                .rename_axis("Motivo")
-                .reset_index(name="Cantidad")
+                .rename_axis(
+                    "Motivo"
+                )
+                .reset_index(
+                    name="Cantidad"
+                )
                 .sort_values(
                     "Cantidad",
                     ascending=True,
@@ -1815,3 +2265,4 @@ st.caption(
     "Dashboard de Elasticidad de Costos · "
     "Dirección de Inteligencia de la Información"
 )
+
