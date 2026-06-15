@@ -1,27 +1,18 @@
-# ============================================================
-# DASHBOARD DE ELASTICIDAD DE COSTOS
-# ============================================================
-
 from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
 from typing import Any
-import html
-import os
-import unicodedata
+import html, os, unicodedata
 
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 
-
-# ============================================================
-# CONFIGURACIÓN DE LA PÁGINA
-# ============================================================
-
+# ============================== CONFIG ==============================
 st.set_page_config(
     page_title="Elasticidad de costos",
     page_icon="📊",
@@ -29,231 +20,441 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-
-# ============================================================
-# COLORES INSTITUCIONALES
-# ============================================================
-
-COLOR_PRINCIPAL = "#A5133D"
-COLOR_OSCURO = "#650D28"
-COLOR_MEDIO = "#C55B77"
-COLOR_CLARO = "#F3CED7"
-COLOR_GRIS = "#6B7280"
-COLOR_VERDE = "#198754"
-COLOR_AMARILLO = "#D89B00"
-COLOR_ROJO = "#B42318"
-
-
-# ============================================================
-# ESTILOS
-# ============================================================
+P = "#A5133D"
+D = "#650D28"
+M = "#C55B77"
+L = "#F3CED7"
+G = "#6B7280"
+GREEN = "#198754"
+YELLOW = "#D89B00"
+RED = "#B42318"
 
 st.markdown(
     f"""
-    <style>
-
-        .block-container {{
-            padding-top: 4rem;
-            padding-bottom: 2rem;
-            padding-left: 2.3rem;
-            padding-right: 2.3rem;
-            max-width: 100%;
-        }}
-
-        .titulo-principal {{
-            color: {COLOR_PRINCIPAL};
-            font-size: 38px;
-            font-weight: 800;
-            border-left: 6px solid {COLOR_PRINCIPAL};
-            padding-left: 14px;
-            margin-top: 0;
-            margin-bottom: 6px;
-            line-height: 1.15;
-        }}
-
-        .subtitulo-principal {{
-            color: #667085;
-            font-size: 14px;
-            margin-left: 20px;
-            margin-bottom: 18px;
-        }}
-
-        .tarjeta {{
-            border: 2px solid {COLOR_PRINCIPAL};
-            border-radius: 6px;
-            padding: 16px 12px;
-            min-height: 160px;
-            text-align: center;
-            background-color: {COLOR_CLARO};
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            box-sizing: border-box;
-        }}
-
-        .tarjeta-titulo {{
-            color: #7A3247;
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 13px;
-            min-height: 20px;
-        }}
-
-        .tarjeta-valor {{
-            color: #581629;
-            font-size: 26px;
-            font-weight: 800;
-            line-height: 1.15;
-            overflow-wrap: anywhere;
-        }}
-
-        .tarjeta-subtitulo {{
-            color: #85465A;
-            font-size: 13px;
-            margin-top: 11px;
-        }}
-
-        .bloque-informacion {{
-            background-color: #FFFFFF;
-            border-left: 5px solid {COLOR_PRINCIPAL};
-            border-radius: 6px;
-            padding: 15px 17px;
-            min-height: 110px;
-            margin-top: 8px;
-            margin-bottom: 10px;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-            box-sizing: border-box;
-        }}
-
-        .bloque-informacion-titulo {{
-            color: {COLOR_PRINCIPAL};
-            font-weight: 700;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }}
-
-        .bloque-informacion-texto {{
-            color: #344054;
-            font-size: 15px;
-            line-height: 1.4;
-            overflow-wrap: anywhere;
-        }}
-
-        div[data-testid="stDataFrame"] {{
-            border: 1px solid #E1E4E8;
-            border-radius: 5px;
-        }}
-
-        div[data-testid="stMetric"] {{
-            background-color: #FFFFFF;
-            border: 1px solid #E4E7EC;
-            border-radius: 6px;
-            padding: 12px;
-        }}
-
-        div[data-testid="stSelectbox"] label,
-        div[data-testid="stTextInput"] label {{
-            color: #7A1E3A;
-            font-weight: 650;
-        }}
-
-        h1, h2, h3 {{
-            color: {COLOR_OSCURO};
-        }}
-
-        hr {{
-            border-color: #E4E7EC;
-        }}
-
-    </style>
-    """,
+<style>
+.block-container{{
+    padding:4.5rem 2.2rem 2rem;
+    max-width:100%
+}}
+.titulo{{
+    color:{P};
+    font-size:38px;
+    font-weight:800;
+    border-left:6px solid {P};
+    padding-left:14px;
+    margin:0 0 6px;
+    line-height:1.15
+}}
+.subtitulo{{
+    color:#667085;
+    font-size:14px;
+    margin:0 0 18px 20px
+}}
+.tarjeta{{
+    border:2px solid {P};
+    border-radius:7px;
+    padding:15px 10px;
+    min-height:155px;
+    text-align:center;
+    background:{L};
+    box-shadow:0 2px 4px rgba(0,0,0,.08);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    box-sizing:border-box
+}}
+.tarjeta-titulo{{
+    color:#7A3247;
+    font-size:14px;
+    font-weight:700;
+    margin-bottom:12px;
+    min-height:20px
+}}
+.tarjeta-valor{{
+    color:#581629;
+    font-size:25px;
+    font-weight:800;
+    line-height:1.18;
+    overflow-wrap:anywhere
+}}
+.tarjeta-subtitulo{{
+    color:#85465A;
+    font-size:13px;
+    margin-top:10px
+}}
+.bloque{{
+    background:#fff;
+    border-left:5px solid {P};
+    border-radius:6px;
+    padding:15px 17px;
+    min-height:110px;
+    margin:8px 0 10px;
+    box-shadow:0 1px 4px rgba(0,0,0,.08);
+    box-sizing:border-box
+}}
+.bloque-titulo{{
+    color:{P};
+    font-weight:700;
+    font-size:14px;
+    margin-bottom:8px
+}}
+.bloque-texto{{
+    color:#344054;
+    font-size:15px;
+    line-height:1.4;
+    overflow-wrap:anywhere
+}}
+div[data-testid="stDataFrame"]{{
+    border:1px solid #E1E4E8;
+    border-radius:5px
+}}
+div[data-testid="stMetric"]{{
+    background:#fff;
+    border:1px solid #E4E7EC;
+    border-radius:6px;
+    padding:12px
+}}
+div[data-testid="stSelectbox"] label,
+div[data-testid="stTextInput"] label{{
+    color:#7A1E3A;
+    font-weight:650
+}}
+h1,h2,h3{{
+    color:{D}
+}}
+hr{{
+    border-color:#E4E7EC
+}}
+</style>
+""",
     unsafe_allow_html=True,
 )
 
 
-# ============================================================
-# FUNCIONES DE RENDERIZADO
-# ============================================================
-
-def renderizar_html(contenido: str) -> None:
-    """
-    Renderiza HTML evitando que Streamlit lo muestre como código.
-    """
-
+# ============================== HELPERS ==============================
+def render(s: str) -> None:
     if hasattr(st, "html"):
-        st.html(contenido)
+        st.html(s)
     else:
-        st.markdown(
-            contenido,
-            unsafe_allow_html=True,
-        )
+        st.markdown(s, unsafe_allow_html=True)
 
 
-# ============================================================
-# FUNCIONES DE RUTAS Y CARGA
-# ============================================================
+def isna(v: Any) -> bool:
+    try:
+        r = pd.isna(v)
+        return bool(r) if isinstance(r, (bool, np.bool_)) else False
+    except Exception:
+        return False
 
-def obtener_carpeta_descargas() -> Path:
-    """
-    Obtiene la carpeta Descargas del usuario.
-    """
 
-    user_profile = os.environ.get("USERPROFILE")
+def txt(v: Any, default="Sin información") -> str:
+    if isna(v):
+        return default
 
-    carpeta_usuario = (
-        Path(user_profile)
-        if user_profile
-        else Path.home()
+    s = str(v).strip()
+
+    if not s or s.lower() in {"nan", "none", "<na>"}:
+        return default
+
+    return s
+
+
+def money(v: Any) -> str:
+    try:
+        s = f"${float(v):,.2f}"
+    except (TypeError, ValueError):
+        return "Sin información"
+
+    return (
+        s.replace(",", "X")
+        .replace(".", ",")
+        .replace("X", ".")
     )
 
-    carpeta_descargas = carpeta_usuario / "Downloads"
 
-    if not carpeta_descargas.exists():
+def pct(v: Any) -> str:
+    try:
+        s = f"{float(v) * 100:,.2f}%"
+    except (TypeError, ValueError):
+        return "Sin información"
+
+    return (
+        s.replace(",", "X")
+        .replace(".", ",")
+        .replace("X", ".")
+    )
+
+
+def card(title, value, subtitle=""):
+    render(
+        f'<div class="tarjeta">'
+        f'<div class="tarjeta-titulo">'
+        f'{html.escape(txt(title, ""))}'
+        f'</div>'
+        f'<div class="tarjeta-valor">'
+        f'{html.escape(txt(value))}'
+        f'</div>'
+        f'<div class="tarjeta-subtitulo">'
+        f'{html.escape(txt(subtitle, ""))}'
+        f'</div>'
+        f'</div>'
+    )
+
+
+def info_block(title, value):
+    render(
+        f'<div class="bloque">'
+        f'<div class="bloque-titulo">'
+        f'{html.escape(txt(title, ""))}'
+        f'</div>'
+        f'<div class="bloque-texto">'
+        f'{html.escape(txt(value))}'
+        f'</div>'
+        f'</div>'
+    )
+
+
+def num(df: pd.DataFrame, col: str) -> pd.Series:
+    if col in df.columns:
+        return pd.to_numeric(df[col], errors="coerce")
+
+    return pd.Series(
+        np.nan,
+        index=df.index,
+        dtype=float,
+    )
+
+
+def get_num(row: pd.Series, col: str):
+    if col not in row.index:
+        return None
+
+    v = pd.to_numeric(
+        pd.Series([row[col]]),
+        errors="coerce",
+    ).iloc[0]
+
+    return None if pd.isna(v) else float(v)
+
+
+def first_col(df: pd.DataFrame, cols: list[str]):
+    return next(
+        (c for c in cols if c in df.columns),
+        None,
+    )
+
+
+def first_value(
+    row: pd.Series,
+    cols: list[str],
+    default="Sin información",
+):
+    for c in cols:
+        if c in row.index and txt(row.get(c), ""):
+            return txt(row.get(c), "")
+
+    return default
+
+
+def norm(v: Any) -> str:
+    if isna(v):
+        return ""
+
+    s = unicodedata.normalize(
+        "NFKD",
+        str(v).strip(),
+    )
+
+    return "".join(
+        c for c in s
+        if not unicodedata.combining(c)
+    ).casefold()
+
+
+def contains(
+    series: pd.Series,
+    text: str,
+) -> pd.Series:
+    return (
+        series.fillna("")
+        .astype(str)
+        .map(norm)
+        .str.contains(
+            norm(text),
+            regex=False,
+            na=False,
+        )
+    )
+
+
+def options(df, col):
+    if col not in df.columns:
+        return []
+
+    s = (
+        df[col]
+        .dropna()
+        .astype(str)
+        .str.strip()
+    )
+
+    s = s[
+        s.ne("")
+        & s.str.lower().ne("nan")
+    ]
+
+    return sorted(
+        s.unique().tolist()
+    )
+
+
+def eq_filter(
+    df,
+    col,
+    value,
+    all_value,
+):
+    if (
+        col not in df.columns
+        or value == all_value
+    ):
+        return df
+
+    return df[
+        df[col]
+        .astype("string")
+        .eq(str(value))
+        .fillna(False)
+    ]
+
+
+def general_search(df, q):
+    if not q or not q.strip():
+        return df
+
+    cols = [
+        c
+        for c in [
+            "AdIdentificacion",
+            "AdNombreCompleto",
+            "AdEmail",
+            "AdCarrera",
+            "AdCarreraHomologada",
+            "AdAsesorNombre",
+            "AdAsesorCorreo",
+            "AdLeadContacto",
+            "AdCodCarrera",
+            "AdNivelSocioec",
+            "AdRangoDeNegociacion",
+        ]
+        if c in df.columns
+    ]
+
+    if not cols:
+        return df
+
+    text = (
+        df[cols]
+        .fillna("")
+        .astype(str)
+        .agg(" | ".join, axis=1)
+        .map(norm)
+    )
+
+    return df[
+        text.str.contains(
+            norm(q),
+            regex=False,
+            na=False,
+        )
+    ]
+
+
+def closed_filter(df, option):
+    if (
+        option == "Todas"
+        or "AdIndCerrado" not in df.columns
+    ):
+        return df
+
+    raw = df["AdIndCerrado"]
+
+    n = pd.to_numeric(
+        raw,
+        errors="coerce",
+    )
+
+    if n.notna().any():
+        objetivo = 1 if option == "Sí" else 0
+        return df[n.eq(objetivo)]
+
+    s = (
+        raw.fillna("")
+        .astype(str)
+        .map(norm)
+    )
+
+    yes = s.isin(
+        {
+            norm(v)
+            for v in [
+                "si",
+                "sí",
+                "1",
+                "true",
+                "cerrado",
+                "cerrada",
+            ]
+        }
+    )
+
+    return df[yes] if option == "Sí" else df[~yes]
+
+
+# ============================== DATA ==============================
+def downloads() -> Path:
+    p = (
+        Path(
+            os.environ.get(
+                "USERPROFILE",
+                Path.home(),
+            )
+        )
+        / "Downloads"
+    )
+
+    if not p.exists():
         raise FileNotFoundError(
-            f"No se encontró la carpeta Descargas: "
-            f"{carpeta_descargas}"
+            f"No se encontró Descargas: {p}"
         )
 
-    return carpeta_descargas
+    return p
 
 
-def obtener_csv_mas_reciente() -> Path:
-    """
-    Busca el archivo CSV de elasticidad más reciente
-    en la carpeta Descargas.
-    """
-
-    carpeta_descargas = obtener_carpeta_descargas()
-
-    archivos = list(
-        carpeta_descargas.glob(
+def newest_csv() -> Path:
+    files = list(
+        downloads().glob(
             "AdFactElasticidadCostos_*.csv"
         )
     )
 
-    if not archivos:
+    if not files:
         raise FileNotFoundError(
-            "No se encontraron archivos con el patrón "
-            "'AdFactElasticidadCostos_*.csv' en Descargas."
+            "No existen archivos "
+            "AdFactElasticidadCostos_*.csv "
+            "en Descargas"
         )
 
     return max(
-        archivos,
-        key=lambda archivo: archivo.stat().st_mtime,
+        files,
+        key=lambda x: x.stat().st_mtime,
     )
 
 
-def preparar_dataframe(
-    df: pd.DataFrame,
-) -> pd.DataFrame:
-    """
-    Normaliza los tipos de datos usados en el dashboard.
-    """
-
+def prepare(df):
     df = df.copy()
 
-    columnas_texto = [
+    text_cols = [
         "AdPeriodo",
         "AdIdentificacion",
         "AdLeadContacto",
@@ -280,12 +481,10 @@ def preparar_dataframe(
         "AdEstadoIngreso",
     ]
 
-    for columna in columnas_texto:
-
-        if columna in df.columns:
-
-            df[columna] = (
-                df[columna]
+    for c in text_cols:
+        if c in df.columns:
+            df[c] = (
+                df[c]
                 .astype("string")
                 .str.strip()
                 .replace(
@@ -298,33 +497,29 @@ def preparar_dataframe(
                 )
             )
 
-            if columna in {
+            if c in {
                 "AdPeriodo",
                 "AdIdentificacion",
                 "AdLeadContacto",
                 "AdCodCarrera",
             }:
-                df[columna] = df[columna].str.replace(
+                df[c] = df[c].str.replace(
                     r"\.0$",
                     "",
                     regex=True,
                 )
 
-    columnas_fecha = [
+    for c in [
         "AdFechaActualizacion",
         "AudFechaCarga",
-    ]
-
-    for columna in columnas_fecha:
-
-        if columna in df.columns:
-
-            df[columna] = pd.to_datetime(
-                df[columna],
+    ]:
+        if c in df.columns:
+            df[c] = pd.to_datetime(
+                df[c],
                 errors="coerce",
             )
 
-    columnas_numericas = [
+    numeric_cols = [
         "AdIndCerrado",
         "AdDiasSinGestion",
         "AdIndContactado",
@@ -355,12 +550,10 @@ def preparar_dataframe(
         "AdGapPostBecaCompetidorMinimo",
     ]
 
-    for columna in columnas_numericas:
-
-        if columna in df.columns:
-
-            df[columna] = pd.to_numeric(
-                df[columna],
+    for c in numeric_cols:
+        if c in df.columns:
+            df[c] = pd.to_numeric(
+                df[c],
                 errors="coerce",
             )
 
@@ -370,743 +563,271 @@ def preparar_dataframe(
 @st.cache_data(
     show_spinner="Cargando información local..."
 )
-def cargar_datos_desde_ruta(
-    ruta_archivo: str,
-    fecha_modificacion: float,
-) -> pd.DataFrame:
-    """
-    Carga el CSV desde una ruta local.
-    """
+def load_path(path, mtime):
+    del mtime
 
-    del fecha_modificacion
-
-    df = pd.read_csv(
-        ruta_archivo,
-        low_memory=False,
-        encoding="utf-8-sig",
-        dtype={
-            "AdPeriodo": "string",
-            "AdIdentificacion": "string",
-            "AdLeadContacto": "string",
-            "AdCodCarrera": "string",
-        },
+    return prepare(
+        pd.read_csv(
+            path,
+            low_memory=False,
+            encoding="utf-8-sig",
+            dtype={
+                "AdPeriodo": "string",
+                "AdIdentificacion": "string",
+                "AdLeadContacto": "string",
+                "AdCodCarrera": "string",
+            },
+        )
     )
-
-    return preparar_dataframe(df)
 
 
 @st.cache_data(
     show_spinner="Procesando archivo cargado..."
 )
-def cargar_datos_desde_bytes(
-    contenido: bytes,
-) -> pd.DataFrame:
-    """
-    Carga un archivo CSV enviado desde el navegador.
-    """
-
-    df = pd.read_csv(
-        BytesIO(contenido),
-        low_memory=False,
-        encoding="utf-8-sig",
-        dtype={
-            "AdPeriodo": "string",
-            "AdIdentificacion": "string",
-            "AdLeadContacto": "string",
-            "AdCodCarrera": "string",
-        },
-    )
-
-    return preparar_dataframe(df)
-
-
-# ============================================================
-# FUNCIONES DE FORMATO
-# ============================================================
-
-def es_nulo(
-    valor: Any,
-) -> bool:
-    """
-    Comprueba si un valor es nulo.
-    """
-
-    try:
-
-        resultado = pd.isna(valor)
-
-        if isinstance(
-            resultado,
-            (bool, np.bool_),
-        ):
-            return bool(resultado)
-
-        return False
-
-    except Exception:
-        return False
-
-
-def valor_texto(
-    valor: Any,
-    defecto: str = "Sin información",
-) -> str:
-    """
-    Convierte un valor en texto.
-    """
-
-    if es_nulo(valor):
-        return defecto
-
-    texto = str(valor).strip()
-
-    if not texto:
-        return defecto
-
-    if texto.lower() in {
-        "nan",
-        "none",
-        "<na>",
-    }:
-        return defecto
-
-    return texto
-
-
-def formato_moneda(
-    valor: Any,
-) -> str:
-    """
-    Formatea un valor monetario.
-    """
-
-    if es_nulo(valor):
-        return "Sin información"
-
-    try:
-        numero = float(valor)
-
-    except (TypeError, ValueError):
-        return "Sin información"
-
-    resultado = f"${numero:,.2f}"
-
-    return (
-        resultado
-        .replace(",", "X")
-        .replace(".", ",")
-        .replace("X", ".")
-    )
-
-
-def formato_porcentaje(
-    valor: Any,
-) -> str:
-    """
-    Convierte una proporción decimal en porcentaje.
-    """
-
-    if es_nulo(valor):
-        return "Sin información"
-
-    try:
-        numero = float(valor) * 100
-
-    except (TypeError, ValueError):
-        return "Sin información"
-
-    resultado = f"{numero:,.2f}%"
-
-    return (
-        resultado
-        .replace(",", "X")
-        .replace(".", ",")
-        .replace("X", ".")
-    )
-
-
-def crear_tarjeta(
-    titulo: str,
-    valor: str,
-    subtitulo: str = "",
-) -> None:
-    """
-    Crea una tarjeta institucional.
-    """
-
-    titulo_seguro = html.escape(
-        valor_texto(titulo, "")
-    )
-
-    valor_seguro = html.escape(
-        valor_texto(valor)
-    )
-
-    subtitulo_seguro = html.escape(
-        valor_texto(subtitulo, "")
-    )
-
-    contenido = (
-        f'<div class="tarjeta">'
-        f'<div class="tarjeta-titulo">'
-        f'{titulo_seguro}'
-        f'</div>'
-        f'<div class="tarjeta-valor">'
-        f'{valor_seguro}'
-        f'</div>'
-        f'<div class="tarjeta-subtitulo">'
-        f'{subtitulo_seguro}'
-        f'</div>'
-        f'</div>'
-    )
-
-    renderizar_html(contenido)
-
-
-def crear_bloque_informacion(
-    titulo: str,
-    texto: str,
-) -> None:
-    """
-    Crea un bloque informativo.
-    """
-
-    titulo_seguro = html.escape(
-        valor_texto(titulo, "")
-    )
-
-    texto_seguro = html.escape(
-        valor_texto(texto)
-    )
-
-    contenido = (
-        f'<div class="bloque-informacion">'
-        f'<div class="bloque-informacion-titulo">'
-        f'{titulo_seguro}'
-        f'</div>'
-        f'<div class="bloque-informacion-texto">'
-        f'{texto_seguro}'
-        f'</div>'
-        f'</div>'
-    )
-
-    renderizar_html(contenido)
-
-
-def opciones_columna(
-    dataframe: pd.DataFrame,
-    columna: str,
-) -> list[str]:
-    """
-    Devuelve las opciones únicas y ordenadas de una columna.
-    """
-
-    if columna not in dataframe.columns:
-        return []
-
-    valores = (
-        dataframe[columna]
-        .dropna()
-        .astype(str)
-        .str.strip()
-    )
-
-    valores = valores[
-        valores.ne("")
-        & valores.str.lower().ne("nan")
-    ]
-
-    return sorted(
-        valores.unique().tolist()
-    )
-
-
-def filtrar_por_valor(
-    dataframe: pd.DataFrame,
-    columna: str,
-    valor: str,
-    valor_todos: str,
-) -> pd.DataFrame:
-    """
-    Aplica un filtro por igualdad.
-    """
-
-    if columna not in dataframe.columns:
-        return dataframe
-
-    if valor == valor_todos:
-        return dataframe
-
-    mascara = (
-        dataframe[columna]
-        .astype("string")
-        .eq(str(valor))
-        .fillna(False)
-    )
-
-    return dataframe[mascara]
-
-
-def obtener_numero(
-    registro: pd.Series,
-    columna: str,
-) -> float | None:
-    """
-    Obtiene un valor numérico desde una fila.
-    """
-
-    if columna not in registro.index:
-        return None
-
-    valor = pd.to_numeric(
-        pd.Series(
-            [registro[columna]]
-        ),
-        errors="coerce",
-    ).iloc[0]
-
-    if pd.isna(valor):
-        return None
-
-    return float(valor)
-
-
-def obtener_primer_valor(
-    registro: pd.Series,
-    columnas: list[str],
-    defecto: str = "Sin información",
-) -> str:
-    """
-    Devuelve el primer valor disponible entre varias columnas.
-    """
-
-    for columna in columnas:
-
-        if columna in registro.index:
-
-            valor = valor_texto(
-                registro.get(columna),
-                "",
-            )
-
-            if valor:
-                return valor
-
-    return defecto
-
-
-# ============================================================
-# FUNCIONES DE BÚSQUEDA
-# ============================================================
-
-def normalizar_texto_busqueda(
-    valor: Any,
-) -> str:
-    """
-    Convierte un valor a texto, elimina tildes
-    y transforma a minúsculas.
-    """
-
-    if es_nulo(valor):
-        return ""
-
-    texto = str(valor).strip()
-
-    texto = unicodedata.normalize(
-        "NFKD",
-        texto,
-    )
-
-    texto = "".join(
-        caracter
-        for caracter in texto
-        if not unicodedata.combining(caracter)
-    )
-
-    return texto.casefold()
-
-
-def aplicar_busqueda_general(
-    dataframe: pd.DataFrame,
-    texto_busqueda: str,
-) -> pd.DataFrame:
-    """
-    Busca simultáneamente en los principales campos
-    de cada postulante.
-    """
-
-    if not texto_busqueda:
-        return dataframe
-
-    if not texto_busqueda.strip():
-        return dataframe
-
-    columnas_busqueda = [
-        "AdIdentificacion",
-        "AdNombreCompleto",
-        "AdEmail",
-        "AdCarrera",
-        "AdCarreraHomologada",
-        "AdAsesorNombre",
-        "AdAsesorCorreo",
-        "AdLeadContacto",
-        "AdCodCarrera",
-        "AdNivelSocioec",
-        "AdRangoDeNegociacion",
-    ]
-
-    columnas_disponibles = [
-        columna
-        for columna in columnas_busqueda
-        if columna in dataframe.columns
-    ]
-
-    if not columnas_disponibles:
-        return dataframe
-
-    consulta_normalizada = (
-        normalizar_texto_busqueda(
-            texto_busqueda
+def load_bytes(content):
+    return prepare(
+        pd.read_csv(
+            BytesIO(content),
+            low_memory=False,
+            encoding="utf-8-sig",
+            dtype={
+                "AdPeriodo": "string",
+                "AdIdentificacion": "string",
+                "AdLeadContacto": "string",
+                "AdCodCarrera": "string",
+            },
         )
     )
 
-    texto_por_fila = (
-        dataframe[columnas_disponibles]
-        .fillna("")
-        .astype(str)
-        .agg(" | ".join, axis=1)
-        .map(normalizar_texto_busqueda)
-    )
-
-    mascara = texto_por_fila.str.contains(
-        consulta_normalizada,
-        regex=False,
-        na=False,
-    )
-
-    return dataframe[mascara]
-
-
-# ============================================================
-# CARGA DE DATOS
-# ============================================================
 
 st.sidebar.header(
     "Base de elasticidad"
 )
 
-archivo_subido = st.sidebar.file_uploader(
+uploaded = st.sidebar.file_uploader(
     "Cargar archivo CSV",
     type=["csv"],
     help=(
-        "Carga el archivo AdFactElasticidadCostos "
+        "Carga el archivo "
+        "AdFactElasticidadCostos "
         "generado desde Jupyter."
     ),
 )
 
 st.sidebar.caption(
-    "En ejecución local, si no cargas un archivo, "
-    "el sistema buscará automáticamente el CSV "
-    "más reciente en la carpeta Descargas."
+    "En local, si no cargas un archivo, "
+    "se buscará automáticamente el CSV "
+    "más reciente en Descargas."
 )
 
-if archivo_subido is not None:
-
-    try:
-
-        contenido_archivo = (
-            archivo_subido.getvalue()
+try:
+    if uploaded:
+        df = load_bytes(
+            uploaded.getvalue()
         )
 
-        df = cargar_datos_desde_bytes(
-            contenido_archivo
-        )
-
-        nombre_fuente = archivo_subido.name
-
-        tipo_fuente = (
+        source_name = uploaded.name
+        source_type = (
             "Archivo cargado manualmente"
         )
 
-    except Exception as error:
+    else:
+        path = newest_csv()
 
-        st.error(
-            "No fue posible leer el archivo cargado."
+        df = load_path(
+            str(path),
+            path.stat().st_mtime,
         )
 
-        st.exception(error)
-
-        st.stop()
-
-else:
-
-    try:
-
-        ruta_csv = obtener_csv_mas_reciente()
-
-        df = cargar_datos_desde_ruta(
-            str(ruta_csv),
-            ruta_csv.stat().st_mtime,
-        )
-
-        nombre_fuente = ruta_csv.name
-
-        tipo_fuente = (
+        source_name = path.name
+        source_type = (
             "Archivo local en Descargas"
         )
 
-    except Exception:
-
-        st.info(
-            "No se encontró una base local. "
-            "Carga el CSV desde el panel lateral "
-            "para visualizar el dashboard."
-        )
-
-        st.stop()
-
+except Exception:
+    st.info(
+        "No se encontró una base local. "
+        "Carga el CSV desde el panel lateral."
+    )
+    st.stop()
 
 if df.empty:
-
     st.warning(
         "La base cargada no contiene registros."
     )
-
     st.stop()
 
 
-# ============================================================
-# ENCABEZADO
-# ============================================================
-
-renderizar_html(
-    '<div class="titulo-principal">'
+# ============================== HEADER & FILTERS ==============================
+render(
+    '<div class="titulo">'
     'ELASTICIDAD DE COSTOS'
     '</div>'
 )
 
-renderizar_html(
-    '<div class="subtitulo-principal">'
-    f'{html.escape(tipo_fuente)}: '
-    f'<strong>{html.escape(nombre_fuente)}</strong>'
+render(
+    f'<div class="subtitulo">'
+    f'{html.escape(source_type)}: '
+    f'<strong>{html.escape(source_name)}</strong>'
     f' · {len(df):,} registros'
     f' · {len(df.columns)} variables'
-    '</div>'
+    f'</div>'
 )
 
-
-# ============================================================
-# FILTROS
-# ============================================================
-
 with st.container(border=True):
-
     st.markdown(
         "### Filtros de consulta"
     )
 
-    busqueda_general = st.text_input(
+    search = st.text_input(
         "Buscar postulante",
         placeholder=(
-            "Escribe nombre, identificación, correo, carrera, "
-            "consultor, código de carrera o lead..."
+            "Escribe nombre, identificación, "
+            "correo, carrera, consultor, "
+            "código de carrera o lead..."
         ),
         help=(
-            "La búsqueda ignora mayúsculas, minúsculas y tildes."
+            "La búsqueda ignora mayúsculas, "
+            "minúsculas y tildes."
         ),
-        key="busqueda_general",
     )
 
     (
-        col_periodo,
-        col_asesor,
-        col_identificacion,
-        col_email,
-        col_cerrado,
-        col_carrera,
+        c1,
+        c2,
+        c3,
+        c4,
+        c5,
+        c6,
     ) = st.columns(
-        [
-            1,
-            1.8,
-            1.4,
-            1.8,
-            1.15,
-            1.6,
-        ]
+        [1, 1.8, 1.4, 1.8, 1.15, 1.6]
     )
 
-    with col_periodo:
-
-        opciones_periodo = opciones_columna(
-            df,
-            "AdPeriodo",
-        )
-
-        filtro_periodo = st.selectbox(
+    with c1:
+        f_period = st.selectbox(
             "Periodo",
-            options=[
-                "Todos"
-            ] + opciones_periodo,
+            ["Todos"]
+            + options(
+                df,
+                "AdPeriodo",
+            ),
         )
 
-    with col_asesor:
-
-        opciones_asesor = opciones_columna(
+    with c2:
+        o = options(
             df,
             "AdAsesorNombre",
         )
 
-        filtro_asesor = st.selectbox(
+        f_advisor = st.selectbox(
             "Consultor cierre",
-            options=[
-                "Todos"
-            ] + opciones_asesor,
-            disabled=not opciones_asesor,
+            ["Todos"] + o,
+            disabled=not o,
         )
 
-    with col_identificacion:
-
-        opciones_identificacion = opciones_columna(
+    with c3:
+        o = options(
             df,
             "AdIdentificacion",
         )
 
-        filtro_identificacion = st.selectbox(
+        f_id = st.selectbox(
             "Identificación",
-            options=[
-                "Todas"
-            ] + opciones_identificacion,
-            disabled=not opciones_identificacion,
+            ["Todas"] + o,
+            disabled=not o,
         )
 
-    with col_email:
-
-        opciones_email = opciones_columna(
+    with c4:
+        o = options(
             df,
             "AdEmail",
         )
 
-        filtro_email = st.selectbox(
+        f_email = st.selectbox(
             "E-mail",
-            options=[
-                "Todos"
-            ] + opciones_email,
-            disabled=not opciones_email,
+            ["Todos"] + o,
+            disabled=not o,
         )
 
-    with col_cerrado:
-
-        filtro_cerrado = st.selectbox(
+    with c5:
+        f_closed = st.selectbox(
             "Cartera cerrada",
-            options=[
+            [
                 "Todas",
                 "Sí",
                 "No",
             ],
         )
 
-    with col_carrera:
-
-        opciones_carrera = opciones_columna(
+    with c6:
+        o = options(
             df,
             "AdCarrera",
         )
 
-        filtro_carrera = st.selectbox(
+        f_career = st.selectbox(
             "Carrera",
-            options=[
-                "Todas"
-            ] + opciones_carrera,
-            disabled=not opciones_carrera,
+            ["Todas"] + o,
+            disabled=not o,
         )
 
 
-# ============================================================
-# APLICAR FILTROS
-# ============================================================
-
-df_filtrado = df.copy()
-
-df_filtrado = aplicar_busqueda_general(
-    df_filtrado,
-    busqueda_general,
+f = general_search(
+    df.copy(),
+    search,
 )
 
-df_filtrado = filtrar_por_valor(
-    df_filtrado,
+f = eq_filter(
+    f,
     "AdPeriodo",
-    filtro_periodo,
+    f_period,
     "Todos",
 )
 
-df_filtrado = filtrar_por_valor(
-    df_filtrado,
+f = eq_filter(
+    f,
     "AdAsesorNombre",
-    filtro_asesor,
+    f_advisor,
     "Todos",
 )
 
-df_filtrado = filtrar_por_valor(
-    df_filtrado,
+f = eq_filter(
+    f,
     "AdIdentificacion",
-    filtro_identificacion,
+    f_id,
     "Todas",
 )
 
-df_filtrado = filtrar_por_valor(
-    df_filtrado,
+f = eq_filter(
+    f,
     "AdEmail",
-    filtro_email,
+    f_email,
     "Todos",
 )
 
-df_filtrado = filtrar_por_valor(
-    df_filtrado,
+f = eq_filter(
+    f,
     "AdCarrera",
-    filtro_carrera,
+    f_career,
     "Todas",
 )
 
-if (
-    filtro_cerrado != "Todas"
-    and "AdIndCerrado" in df_filtrado.columns
-):
+f = closed_filter(
+    f,
+    f_closed,
+)
 
-    valor_cerrado = (
-        1
-        if filtro_cerrado == "Sí"
-        else 0
-    )
-
-    valores_cerrados = pd.to_numeric(
-        df_filtrado["AdIndCerrado"],
-        errors="coerce",
-    )
-
-    df_filtrado = df_filtrado[
-        valores_cerrados.eq(
-            valor_cerrado
-        )
-    ]
-
-
-if df_filtrado.empty:
-
+if f.empty:
     st.warning(
         "No existen registros para los filtros "
         "o la búsqueda seleccionada."
     )
-
     st.stop()
 
 
-# ============================================================
-# SELECCIÓN DEL REGISTRO
-# ============================================================
-
-df_detalle = (
-    df_filtrado
-    .reset_index(drop=False)
+# ============================== SELECTED RECORD & CARDS ==============================
+detail = (
+    f.reset_index(drop=False)
     .rename(
         columns={
             "index": "_indice_original"
@@ -1115,405 +836,266 @@ df_detalle = (
 )
 
 
-def crear_etiqueta_registro(
-    fila: pd.Series,
-) -> str:
-    """
-    Construye la etiqueta mostrada en el selector.
-    """
-
-    identificacion = valor_texto(
-        fila.get(
-            "AdIdentificacion"
-        ),
-        "Sin identificación",
-    )
-
-    nombre = valor_texto(
-        fila.get(
-            "AdNombreCompleto"
-        ),
-        "Sin nombre",
-    )
-
-    carrera = valor_texto(
-        fila.get(
-            "AdCarrera"
-        ),
-        "Sin carrera",
-    )
-
+def label(row):
     return (
-        f"{identificacion} | "
-        f"{nombre} | "
-        f"{carrera}"
+        f'{txt(row.get("AdIdentificacion"), "Sin identificación")}'
+        f' | '
+        f'{txt(row.get("AdNombreCompleto"), "Sin nombre")}'
+        f' | '
+        f'{txt(row.get("AdCarrera"), "Sin carrera")}'
     )
 
 
-etiquetas_registro = [
-    crear_etiqueta_registro(fila)
-    for _, fila in df_detalle.iterrows()
+labels = [
+    label(r)
+    for _, r in detail.iterrows()
 ]
 
-indice_detalle = st.selectbox(
+idx = st.selectbox(
     "Registro para visualizar el detalle",
-    options=list(
-        range(
-            len(df_detalle)
-        )
-    ),
+    range(len(detail)),
     index=0,
-    format_func=lambda indice: (
-        etiquetas_registro[indice]
-    ),
+    format_func=lambda i: labels[i],
 )
 
-registro = df_detalle.iloc[
-    indice_detalle
-]
+row = detail.iloc[idx]
 
-
-# ============================================================
-# MÉTRICAS GENERALES
-# ============================================================
-
-if "AdIdentificacion" in df_filtrado.columns:
-
-    cantidad_postulantes = (
-        df_filtrado[
-            "AdIdentificacion"
-        ]
-        .nunique(
-            dropna=True
-        )
+if "AdIdentificacion" in f.columns:
+    applicants = (
+        f["AdIdentificacion"]
+        .nunique(dropna=True)
     )
-
 else:
+    applicants = len(f)
 
-    cantidad_postulantes = len(
-        df_filtrado
+avg_days = num(
+    f,
+    "AdDiasSinGestion",
+).mean()
+
+cols = st.columns(6)
+
+with cols[0]:
+    card(
+        "Nivel socioeconómico",
+        txt(
+            row.get("AdNivelSocioec")
+        ),
+        "Clasificación del postulante",
     )
 
-
-if "AdDiasSinGestion" in df_filtrado.columns:
-
-    promedio_dias = pd.to_numeric(
-        df_filtrado[
-            "AdDiasSinGestion"
-        ],
-        errors="coerce",
-    ).mean()
-
-else:
-
-    promedio_dias = np.nan
-
-
-nivel_socioeconomico = valor_texto(
-    registro.get(
-        "AdNivelSocioec"
-    )
-)
-
-rango_negociacion = valor_texto(
-    registro.get(
-        "AdRangoDeNegociacion"
-    )
-)
-
-beca_recomendada = formato_porcentaje(
-    registro.get(
-        "AdBecaRecomendada"
-    )
-)
-
-beca_final = formato_porcentaje(
-    registro.get(
-        "AdBecaFinalSugerida"
-    )
-)
-
-
-# ============================================================
-# TARJETAS
-# ============================================================
-
-(
-    tarjeta_1,
-    tarjeta_2,
-    tarjeta_3,
-    tarjeta_4,
-    tarjeta_5,
-    tarjeta_6,
-) = st.columns(6)
-
-with tarjeta_1:
-
-    crear_tarjeta(
-        titulo="Nivel socioeconómico",
-        valor=nivel_socioeconomico,
-        subtitulo="Clasificación del postulante",
+with cols[1]:
+    card(
+        "Rango de negociación",
+        txt(
+            row.get("AdRangoDeNegociacion")
+        ),
+        "Resultado del modelo",
     )
 
-with tarjeta_2:
-
-    crear_tarjeta(
-        titulo="Rango de negociación",
-        valor=rango_negociacion,
-        subtitulo="Resultado del modelo",
+with cols[2]:
+    card(
+        "Cantidad de postulantes",
+        f"{applicants:,}",
+        "Según filtros aplicados",
     )
 
-with tarjeta_3:
-
-    crear_tarjeta(
-        titulo="Cantidad de postulantes",
-        valor=f"{cantidad_postulantes:,}",
-        subtitulo="Según filtros aplicados",
-    )
-
-with tarjeta_4:
-
-    crear_tarjeta(
-        titulo="Promedio días sin gestión",
-        valor=(
-            f"{promedio_dias:.0f}"
-            if pd.notna(
-                promedio_dias
-            )
+with cols[3]:
+    card(
+        "Promedio días sin gestión",
+        (
+            f"{avg_days:.0f}"
+            if pd.notna(avg_days)
             else "Sin información"
         ),
-        subtitulo="Seguimiento comercial",
+        "Seguimiento comercial",
     )
 
-with tarjeta_5:
-
-    crear_tarjeta(
-        titulo="Beca recomendada",
-        valor=beca_recomendada,
-        subtitulo="Priorización inicial",
+with cols[4]:
+    card(
+        "Beca recomendada",
+        pct(
+            row.get("AdBecaRecomendada")
+        ),
+        "Priorización inicial",
     )
 
-with tarjeta_6:
-
-    crear_tarjeta(
-        titulo="Beca final sugerida",
-        valor=beca_final,
-        subtitulo="Ajustada por mercado",
+with cols[5]:
+    card(
+        "Beca final sugerida",
+        pct(
+            row.get("AdBecaFinalSugerida")
+        ),
+        "Ajustada por mercado",
     )
 
 
-# ============================================================
-# PESTAÑAS
-# ============================================================
-
-tab_detalle, tab_resumen = st.tabs(
+# ============================== TABS ==============================
+(
+    t_detail,
+    t_summary,
+    t_advanced,
+) = st.tabs(
     [
         "Detalle del postulante",
         "Resumen general",
+        "Análisis avanzado",
     ]
 )
 
 
-# ============================================================
-# PESTAÑA: DETALLE
-# ============================================================
-
-with tab_detalle:
-
+# ============================== DETAIL TAB ==============================
+with t_detail:
     st.subheader(
         "Información comercial"
     )
 
-    (
-        columna_estado,
-        columna_confianza,
-        columna_motivo,
-    ) = st.columns(3)
+    a, b, c = st.columns(3)
 
-    with columna_estado:
-
-        crear_bloque_informacion(
+    with a:
+        info_block(
             "Resultado de competitividad",
-            valor_texto(
-                registro.get(
+            txt(
+                row.get(
                     "AdResultadoCompetitividadFinal"
                 )
             ),
         )
 
-    with columna_confianza:
-
-        crear_bloque_informacion(
+    with b:
+        info_block(
             "Confianza de la referencia",
-            valor_texto(
-                registro.get(
+            txt(
+                row.get(
                     "AdConfianzaReferenciaMercado"
                 )
             ),
         )
 
-    with columna_motivo:
-
-        crear_bloque_informacion(
+    with c:
+        info_block(
             "Decisión sobre la beca",
-            valor_texto(
-                registro.get(
+            txt(
+                row.get(
                     "AdMotivoBecaFinal"
                 )
             ),
         )
 
-    resultado_competitivo = valor_texto(
-        registro.get(
-            "AdResultadoCompetitividadFinal"
+    r = norm(
+        txt(
+            row.get(
+                "AdResultadoCompetitividadFinal"
+            )
         )
     )
 
-    resultado_normalizado = (
-        resultado_competitivo
-        .strip()
-        .lower()
-    )
-
-    if (
-        "iguala" in resultado_normalizado
-        or "mejora" in resultado_normalizado
-    ):
-
+    if "iguala" in r or "mejora" in r:
         st.success(
-            "La beca final permite igualar o mejorar "
-            "la referencia de mercado."
+            "La beca final permite igualar "
+            "o mejorar la referencia de mercado."
         )
 
-    elif "por encima" in resultado_normalizado:
-
+    elif "por encima" in r:
         st.warning(
             "La propuesta permanece por encima "
             "de la referencia de mercado."
         )
 
     else:
-
         st.info(
-            "No existe información suficiente para "
-            "determinar la competitividad final."
+            "No existe información suficiente "
+            "para determinar la competitividad final."
         )
 
     st.divider()
-
-    # --------------------------------------------------------
-    # COMPARACIÓN DE COSTOS
-    # --------------------------------------------------------
 
     st.subheader(
         "Comparación de costos"
     )
 
-    valores_costos = [
+    cost_rows = [
         (
             "Competidor más económico",
-            obtener_numero(
-                registro,
+            get_num(
+                row,
                 "AdCostoCompetidorMinimo",
             ),
         ),
         (
             "Referencia central de mercado",
-            obtener_numero(
-                registro,
+            get_num(
+                row,
                 "AdCostoRefMercado",
             ),
         ),
         (
             "UDLA sin beca",
-            obtener_numero(
-                registro,
+            get_num(
+                row,
                 "AdCostoInstitucion",
             ),
         ),
         (
             "UDLA con beca recomendada",
-            obtener_numero(
-                registro,
+            get_num(
+                row,
                 "AdCostoUDLAConBecaRecomendada",
             ),
         ),
         (
             "UDLA con beca final",
-            obtener_numero(
-                registro,
+            get_num(
+                row,
                 "AdCostoUDLAConBecaFinal",
             ),
         ),
     ]
 
-    datos_costos = pd.DataFrame(
+    cost_df = pd.DataFrame(
         [
             {
-                "Escenario": escenario,
-                "Costo": costo,
+                "Escenario": x,
+                "Costo": y,
             }
-            for escenario, costo
-            in valores_costos
-            if costo is not None
+            for x, y in cost_rows
+            if y is not None
         ]
     )
 
-    columna_grafico, columna_detalle_costos = (
-        st.columns(
-            [
-                1.6,
-                1,
-            ]
-        )
+    a, b = st.columns(
+        [1.6, 1]
     )
 
-    with columna_grafico:
-
-        if datos_costos.empty:
-
+    with a:
+        if cost_df.empty:
             st.info(
-                "No existen valores monetarios suficientes "
-                "para construir la comparación."
+                "No existen valores monetarios "
+                "suficientes para construir "
+                "la comparación."
             )
 
         else:
-
-            colores_costos = [
-                "#7A7F87",
-                "#B38B98",
-                COLOR_OSCURO,
-                COLOR_MEDIO,
-                COLOR_PRINCIPAL,
-            ]
-
-            figura_costos = go.Figure()
-
-            figura_costos.add_trace(
+            fig = go.Figure(
                 go.Bar(
-                    x=datos_costos[
-                        "Escenario"
-                    ],
-                    y=datos_costos[
-                        "Costo"
-                    ],
+                    x=cost_df["Escenario"],
+                    y=cost_df["Costo"],
                     text=[
-                        formato_moneda(valor)
-                        for valor
-                        in datos_costos[
-                            "Costo"
-                        ]
+                        money(v)
+                        for v in cost_df["Costo"]
                     ],
                     textposition="outside",
-                    marker_color=(
-                        colores_costos[
-                            :len(datos_costos)
-                        ]
-                    ),
+                    marker_color=[
+                        "#7A7F87",
+                        "#B38B98",
+                        D,
+                        M,
+                        P,
+                    ][:len(cost_df)],
                 )
             )
 
-            figura_costos.update_layout(
+            fig.update_layout(
                 height=440,
                 margin=dict(
                     l=20,
@@ -1527,22 +1109,21 @@ with tab_detalle:
                 showlegend=False,
             )
 
-            figura_costos.update_yaxes(
+            fig.update_yaxes(
                 tickprefix="$",
                 separatethousands=True,
             )
 
             st.plotly_chart(
-                figura_costos,
+                fig,
                 use_container_width=True,
             )
 
-    with columna_detalle_costos:
-
+    with b:
         st.metric(
             "Matrícula UDLA",
-            formato_moneda(
-                registro.get(
+            money(
+                row.get(
                     "AdMatriculaUDLA"
                 )
             ),
@@ -1550,8 +1131,8 @@ with tab_detalle:
 
         st.metric(
             "Arancel UDLA",
-            formato_moneda(
-                registro.get(
+            money(
+                row.get(
                     "AdArancelUDLA"
                 )
             ),
@@ -1559,8 +1140,8 @@ with tab_detalle:
 
         st.metric(
             "Total UDLA sin beca",
-            formato_moneda(
-                registro.get(
+            money(
+                row.get(
                     "AdCostoInstitucion"
                 )
             ),
@@ -1568,8 +1149,8 @@ with tab_detalle:
 
         st.metric(
             "Total UDLA con beca final",
-            formato_moneda(
-                registro.get(
+            money(
+                row.get(
                     "AdCostoUDLAConBecaFinal"
                 )
             ),
@@ -1577,31 +1158,27 @@ with tab_detalle:
 
         st.metric(
             "Brecha final frente al mercado",
-            formato_moneda(
-                registro.get(
+            money(
+                row.get(
                     "AdGapFinalVsMercado"
                 )
             ),
         )
 
-    # --------------------------------------------------------
-    # REFERENCIA COMPETITIVA
-    # --------------------------------------------------------
-
     st.subheader(
         "Referencia competitiva utilizada"
     )
 
-    universidad_referencia = obtener_primer_valor(
-        registro,
+    ref_u = first_value(
+        row,
         [
             "AdUniversidadCompetidoraRef",
             "AdUniversidadReferenciaMercado",
         ],
     )
 
-    universidad_minima = obtener_primer_valor(
-        registro,
+    min_u = first_value(
+        row,
         [
             "AdUniversidadCompetidorMinimo",
             "AdUniversidadCompetidoraMin",
@@ -1609,31 +1186,31 @@ with tab_detalle:
         ],
     )
 
-    referencia_competitiva = pd.DataFrame(
+    refs = pd.DataFrame(
         {
             "Tipo de referencia": [
                 "Referencia central",
                 "Competidor más económico",
             ],
             "Universidad": [
-                universidad_referencia,
-                universidad_minima,
+                ref_u,
+                min_u,
             ],
             "Fuente": [
-                valor_texto(
-                    registro.get(
+                txt(
+                    row.get(
                         "AdFuenteCostoMercado"
                     )
                 ),
                 "Precio mínimo disponible",
             ],
             "Costo": [
-                obtener_numero(
-                    registro,
+                get_num(
+                    row,
                     "AdCostoRefMercado",
                 ),
-                obtener_numero(
-                    registro,
+                get_num(
+                    row,
                     "AdCostoCompetidorMinimo",
                 ),
             ],
@@ -1641,7 +1218,7 @@ with tab_detalle:
     )
 
     st.dataframe(
-        referencia_competitiva,
+        refs,
         use_container_width=True,
         hide_index=True,
         column_config={
@@ -1650,19 +1227,15 @@ with tab_detalle:
                     "Costo",
                     format="$ %.2f",
                 )
-            ),
+            )
         },
     )
-
-    # --------------------------------------------------------
-    # TABLA DE POSTULANTES
-    # --------------------------------------------------------
 
     st.subheader(
         "Detalle de postulantes"
     )
 
-    mapa_columnas_tabla = {
+    mapping = {
         "AdAsesorNombre": "Consultor cierre",
         "AdIdentificacion": "Identificación",
         "AdNombreCompleto": "Nombre completo",
@@ -1679,91 +1252,67 @@ with tab_detalle:
         "AdNivelSocioec": "Nivel socioeconómico",
         "AdCostoRefMercado": "Costo ref. mercado",
         "AdCostoInstitucion": "Costo institución",
-        "AdCostoUDLAConBecaFinal": "Costo con beca final",
-        "AdResultadoCompetitividadFinal": "Resultado competitivo",
+        "AdCostoUDLAConBecaFinal": (
+            "Costo con beca final"
+        ),
+        "AdResultadoCompetitividadFinal": (
+            "Resultado competitivo"
+        ),
     }
 
-    columnas_tabla_disponibles = [
-        columna
-        for columna
-        in mapa_columnas_tabla
-        if columna
-        in df_filtrado.columns
-    ]
-
-    tabla_postulantes = (
-        df_filtrado[
-            columnas_tabla_disponibles
+    table = (
+        f[
+            [
+                x
+                for x in mapping
+                if x in f.columns
+            ]
         ]
         .copy()
-        .rename(
-            columns=mapa_columnas_tabla
-        )
+        .rename(columns=mapping)
     )
 
-    columnas_porcentaje_tabla = [
+    pcols = [
         "Beca recomendada",
         "Beca lower",
         "Beca upper",
         "Beca final",
     ]
 
-    for columna in columnas_porcentaje_tabla:
-
-        if columna in tabla_postulantes.columns:
-
-            tabla_postulantes[
-                columna
-            ] = (
+    for c in pcols:
+        if c in table.columns:
+            table[c] = (
                 pd.to_numeric(
-                    tabla_postulantes[
-                        columna
-                    ],
+                    table[c],
                     errors="coerce",
                 )
                 * 100
             )
 
-    configuracion_columnas = {}
+    config = {
+        c: st.column_config.NumberColumn(
+            c,
+            format="%.2f %%",
+        )
+        for c in pcols
+        if c in table.columns
+    }
 
-    for columna in columnas_porcentaje_tabla:
-
-        if columna in tabla_postulantes.columns:
-
-            configuracion_columnas[
-                columna
-            ] = (
-                st.column_config.NumberColumn(
-                    columna,
-                    format="%.2f %%",
-                )
-            )
-
-    for columna in [
+    for c in [
         "Costo ref. mercado",
         "Costo institución",
         "Costo con beca final",
     ]:
-
-        if columna in tabla_postulantes.columns:
-
-            configuracion_columnas[
-                columna
-            ] = (
+        if c in table.columns:
+            config[c] = (
                 st.column_config.NumberColumn(
-                    columna,
+                    c,
                     format="$ %.2f",
                 )
             )
 
-    if (
-        "Días sin gestión"
-        in tabla_postulantes.columns
-    ):
-
-        configuracion_columnas[
-            "Días sin gestión"
-        ] = (
+    if "Días sin gestión" in table.columns:
+        config["Días sin gestión"] = (
             st.column_config.NumberColumn(
                 "Días sin gestión",
                 format="%.0f",
@@ -1771,164 +1320,104 @@ with tab_detalle:
         )
 
     st.dataframe(
-        tabla_postulantes,
+        table,
         use_container_width=True,
         hide_index=True,
         height=430,
-        column_config=configuracion_columnas,
+        column_config=config,
     )
 
     st.caption(
-        f"Registros filtrados: "
-        f"{len(df_filtrado):,} · "
-        f"Postulantes distintos: "
-        f"{cantidad_postulantes:,}"
+        f"Registros filtrados: {len(f):,} · "
+        f"Postulantes distintos: {applicants:,}"
     )
 
 
-# ============================================================
-# PESTAÑA: RESUMEN GENERAL
-# ============================================================
-
-with tab_resumen:
-
+# ============================== SUMMARY TAB ==============================
+with t_summary:
     st.subheader(
         "Indicadores generales"
     )
 
-    total_registros = len(
-        df_filtrado
-    )
-
-    serie_beca_ajustada = df_filtrado.get(
-        "AdBecaFueAjustada",
-        pd.Series(
-            0,
-            index=df_filtrado.index,
-        ),
-    )
-
-    total_becas_ajustadas = (
-        pd.to_numeric(
-            serie_beca_ajustada,
-            errors="coerce",
+    adjusted = (
+        num(
+            f,
+            "AdBecaFueAjustada",
         )
         .fillna(0)
         .eq(1)
         .sum()
     )
 
-    serie_validar_ingreso = df_filtrado.get(
-        "AdRequiereValidarIngreso",
-        pd.Series(
-            0,
-            index=df_filtrado.index,
-        ),
-    )
-
-    total_validar_ingreso = (
-        pd.to_numeric(
-            serie_validar_ingreso,
-            errors="coerce",
+    validate = (
+        num(
+            f,
+            "AdRequiereValidarIngreso",
         )
         .fillna(0)
         .eq(1)
         .sum()
     )
 
-    serie_revision_comercial = df_filtrado.get(
-        "AdRequiereRevisionComercial",
-        pd.Series(
-            0,
-            index=df_filtrado.index,
-        ),
-    )
-
-    total_revision_comercial = (
-        pd.to_numeric(
-            serie_revision_comercial,
-            errors="coerce",
+    review = (
+        num(
+            f,
+            "AdRequiereRevisionComercial",
         )
         .fillna(0)
         .eq(1)
         .sum()
     )
 
-    if (
-        "AdCostoRefMercado"
-        in df_filtrado.columns
-    ):
+    market_cov = (
+        f["AdCostoRefMercado"]
+        .notna()
+        .mean()
+        if "AdCostoRefMercado" in f.columns
+        else np.nan
+    )
 
-        cobertura_mercado = (
-            df_filtrado[
-                "AdCostoRefMercado"
-            ]
-            .notna()
-            .mean()
-        )
+    tariff_cov = (
+        f["AdArancelUDLA"]
+        .notna()
+        .mean()
+        if "AdArancelUDLA" in f.columns
+        else np.nan
+    )
 
-    else:
 
-        cobertura_mercado = np.nan
+    m = st.columns(6)
 
-    if (
-        "AdArancelUDLA"
-        in df_filtrado.columns
-    ):
-
-        cobertura_tarifa = (
-            df_filtrado[
-                "AdArancelUDLA"
-            ]
-            .notna()
-            .mean()
-        )
-
-    else:
-
-        cobertura_tarifa = np.nan
-
-    (
-        metrica_1,
-        metrica_2,
-        metrica_3,
-        metrica_4,
-        metrica_5,
-        metrica_6,
-    ) = st.columns(6)
-
-    metrica_1.metric(
+    m[0].metric(
         "Registros",
-        f"{total_registros:,}",
+        f"{len(f):,}",
     )
 
-    metrica_2.metric(
+    m[1].metric(
         "Postulantes",
-        f"{cantidad_postulantes:,}",
+        f"{applicants:,}",
     )
 
-    metrica_3.metric(
+    m[2].metric(
         "Becas ajustadas",
-        f"{total_becas_ajustadas:,}",
+        f"{adjusted:,}",
     )
 
-    metrica_4.metric(
+    m[3].metric(
         "Validar ingreso",
-        f"{total_validar_ingreso:,}",
+        f"{validate:,}",
     )
 
-    metrica_5.metric(
+    m[4].metric(
         "Revisión comercial",
-        f"{total_revision_comercial:,}",
+        f"{review:,}",
     )
 
-    metrica_6.metric(
+    m[5].metric(
         "Cobertura de mercado",
         (
-            f"{cobertura_mercado:.1%}"
-            if pd.notna(
-                cobertura_mercado
-            )
+            f"{market_cov:.1%}"
+            if pd.notna(market_cov)
             else "Sin información"
         ),
     )
@@ -1936,71 +1425,50 @@ with tab_resumen:
     st.caption(
         "Cobertura de tarifas UDLA: "
         + (
-            f"{cobertura_tarifa:.1%}"
-            if pd.notna(
-                cobertura_tarifa
-            )
+            f"{tariff_cov:.1%}"
+            if pd.notna(tariff_cov)
             else "Sin información"
         )
     )
 
     st.divider()
 
-    columna_grafico_1, columna_grafico_2 = (
-        st.columns(2)
-    )
+    a, b = st.columns(2)
 
-    # --------------------------------------------------------
-    # RESULTADO COMPETITIVO
-    # --------------------------------------------------------
-
-    with columna_grafico_1:
-
+    with a:
         st.subheader(
             "Resultado competitivo final"
         )
 
         if (
             "AdResultadoCompetitividadFinal"
-            in df_filtrado.columns
+            in f.columns
         ):
-
-            resumen_resultado = (
-                df_filtrado[
-                    "AdResultadoCompetitividadFinal"
-                ]
-                .fillna(
-                    "Sin información"
-                )
+            d = (
+                f["AdResultadoCompetitividadFinal"]
+                .fillna("Sin información")
                 .value_counts()
-                .rename_axis(
-                    "Resultado"
-                )
-                .reset_index(
-                    name="Cantidad"
-                )
-                .sort_values(
-                    "Cantidad",
-                    ascending=True,
-                )
+                .rename_axis("Resultado")
+                .reset_index(name="Cantidad")
+                .sort_values("Cantidad")
             )
 
-            figura_resultado = px.bar(
-                resumen_resultado,
+            fig = px.bar(
+                d,
                 x="Cantidad",
                 y="Resultado",
                 orientation="h",
                 text="Cantidad",
                 color="Resultado",
                 color_discrete_sequence=[
-                    COLOR_PRINCIPAL,
-                    COLOR_MEDIO,
+                    P,
+                    M,
                     "#C9A5AF",
                     "#7A7F87",
                 ],
             )
 
-            figura_resultado.update_layout(
+            fig.update_layout(
                 height=430,
                 showlegend=False,
                 template="plotly_white",
@@ -2014,68 +1482,50 @@ with tab_resumen:
                 ),
             )
 
-            figura_resultado.update_traces(
+            fig.update_traces(
                 textposition="outside"
             )
 
             st.plotly_chart(
-                figura_resultado,
+                fig,
                 use_container_width=True,
             )
 
         else:
-
             st.info(
                 "No está disponible la variable "
                 "de resultado competitivo."
             )
 
-    # --------------------------------------------------------
-    # NIVEL SOCIOECONÓMICO
-    # --------------------------------------------------------
-
-    with columna_grafico_2:
-
+    with b:
         st.subheader(
             "Distribución socioeconómica"
         )
 
-        if (
-            "AdNivelSocioec"
-            in df_filtrado.columns
-        ):
-
-            resumen_nivel = (
-                df_filtrado[
-                    "AdNivelSocioec"
-                ]
-                .fillna(
-                    "Sin información"
-                )
+        if "AdNivelSocioec" in f.columns:
+            d = (
+                f["AdNivelSocioec"]
+                .fillna("Sin información")
                 .value_counts()
-                .rename_axis(
-                    "Nivel"
-                )
-                .reset_index(
-                    name="Cantidad"
-                )
+                .rename_axis("Nivel")
+                .reset_index(name="Cantidad")
             )
 
-            figura_nivel = px.pie(
-                resumen_nivel,
+            fig = px.pie(
+                d,
                 names="Nivel",
                 values="Cantidad",
                 hole=0.45,
                 color_discrete_sequence=[
-                    COLOR_OSCURO,
-                    COLOR_PRINCIPAL,
-                    COLOR_MEDIO,
+                    D,
+                    P,
+                    M,
                     "#E6A5B5",
                     "#7A7F87",
                 ],
             )
 
-            figura_nivel.update_layout(
+            fig.update_layout(
                 height=430,
                 template="plotly_white",
                 margin=dict(
@@ -2088,69 +1538,44 @@ with tab_resumen:
             )
 
             st.plotly_chart(
-                figura_nivel,
+                fig,
                 use_container_width=True,
             )
 
         else:
-
             st.info(
                 "No está disponible la variable "
                 "de nivel socioeconómico."
             )
 
-    columna_grafico_3, columna_grafico_4 = (
-        st.columns(2)
-    )
+    a, b = st.columns(2)
 
-    # --------------------------------------------------------
-    # TOP DE CARRERAS
-    # --------------------------------------------------------
-
-    with columna_grafico_3:
-
+    with a:
         st.subheader(
             "Carreras con más postulantes"
         )
 
-        if (
-            "AdCarrera"
-            in df_filtrado.columns
-        ):
-
-            resumen_carreras = (
-                df_filtrado[
-                    "AdCarrera"
-                ]
-                .fillna(
-                    "Sin carrera"
-                )
+        if "AdCarrera" in f.columns:
+            d = (
+                f["AdCarrera"]
+                .fillna("Sin carrera")
                 .value_counts()
                 .head(10)
-                .rename_axis(
-                    "Carrera"
-                )
-                .reset_index(
-                    name="Cantidad"
-                )
-                .sort_values(
-                    "Cantidad",
-                    ascending=True,
-                )
+                .rename_axis("Carrera")
+                .reset_index(name="Cantidad")
+                .sort_values("Cantidad")
             )
 
-            figura_carreras = px.bar(
-                resumen_carreras,
+            fig = px.bar(
+                d,
                 x="Cantidad",
                 y="Carrera",
                 orientation="h",
                 text="Cantidad",
-                color_discrete_sequence=[
-                    COLOR_PRINCIPAL
-                ],
+                color_discrete_sequence=[P],
             )
 
-            figura_carreras.update_layout(
+            fig.update_layout(
                 height=480,
                 template="plotly_white",
                 xaxis_title="Cantidad",
@@ -2163,69 +1588,47 @@ with tab_resumen:
                 ),
             )
 
-            figura_carreras.update_traces(
+            fig.update_traces(
                 textposition="outside"
             )
 
             st.plotly_chart(
-                figura_carreras,
+                fig,
                 use_container_width=True,
             )
 
         else:
-
             st.info(
-                "No está disponible la variable carrera."
+                "No está disponible "
+                "la variable carrera."
             )
 
-    # --------------------------------------------------------
-    # MOTIVOS DE BECA FINAL
-    # --------------------------------------------------------
-
-    with columna_grafico_4:
-
+    with b:
         st.subheader(
             "Decisión final sobre la beca"
         )
 
-        if (
-            "AdMotivoBecaFinal"
-            in df_filtrado.columns
-        ):
-
-            resumen_motivos = (
-                df_filtrado[
-                    "AdMotivoBecaFinal"
-                ]
-                .fillna(
-                    "Sin información"
-                )
+        if "AdMotivoBecaFinal" in f.columns:
+            d = (
+                f["AdMotivoBecaFinal"]
+                .fillna("Sin información")
                 .value_counts()
                 .head(10)
-                .rename_axis(
-                    "Motivo"
-                )
-                .reset_index(
-                    name="Cantidad"
-                )
-                .sort_values(
-                    "Cantidad",
-                    ascending=True,
-                )
+                .rename_axis("Motivo")
+                .reset_index(name="Cantidad")
+                .sort_values("Cantidad")
             )
 
-            figura_motivos = px.bar(
-                resumen_motivos,
+            fig = px.bar(
+                d,
                 x="Cantidad",
                 y="Motivo",
                 orientation="h",
                 text="Cantidad",
-                color_discrete_sequence=[
-                    COLOR_MEDIO
-                ],
+                color_discrete_sequence=[M],
             )
 
-            figura_motivos.update_layout(
+            fig.update_layout(
                 height=480,
                 template="plotly_white",
                 xaxis_title="Cantidad",
@@ -2238,26 +1641,1178 @@ with tab_resumen:
                 ),
             )
 
-            figura_motivos.update_traces(
+            fig.update_traces(
                 textposition="outside"
             )
 
             st.plotly_chart(
-                figura_motivos,
+                fig,
                 use_container_width=True,
             )
 
         else:
-
             st.info(
                 "No está disponible el motivo "
                 "de la beca final."
             )
 
 
-# ============================================================
-# PIE DE PÁGINA
-# ============================================================
+# ============================== ADVANCED TAB ==============================
+with t_advanced:
+    st.subheader(
+        "Análisis avanzado del modelo"
+    )
+
+    st.caption(
+        "Todas las visualizaciones responden "
+        "a los filtros superiores."
+    )
+
+    # 1. UDLA VS. MERCADO
+    st.markdown(
+        "### 1. UDLA frente al mercado "
+        "antes y después de la beca"
+    )
+
+    req = [
+        "AdCostoRefMercado",
+        "AdCostoInstitucion",
+        "AdCostoUDLAConBecaFinal",
+    ]
+
+    if all(c in f.columns for c in req):
+        d = f.copy()
+
+        d["Mercado"] = num(
+            d,
+            "AdCostoRefMercado",
+        )
+
+        d["UDLA sin beca"] = num(
+            d,
+            "AdCostoInstitucion",
+        )
+
+        d["UDLA con beca"] = num(
+            d,
+            "AdCostoUDLAConBecaFinal",
+        )
+
+        d = d.dropna(
+            subset=[
+                "Mercado",
+                "UDLA sin beca",
+                "UDLA con beca",
+            ]
+        )
+
+        if len(d) > 2500:
+            d = d.sample(
+                2500,
+                random_state=42,
+            )
+
+        if d.empty:
+            st.info(
+                "No existen valores suficientes."
+            )
+
+        else:
+            fig = make_subplots(
+                rows=1,
+                cols=2,
+                subplot_titles=(
+                    "Antes de la beca",
+                    "Después de la beca final",
+                ),
+                horizontal_spacing=0.10,
+            )
+
+            hover = (
+                d.get(
+                    "AdCarrera",
+                    pd.Series(
+                        "",
+                        index=d.index,
+                    ),
+                )
+                .fillna("")
+                .astype(str)
+                + "<br>"
+                + d.get(
+                    "AdNivelSocioec",
+                    pd.Series(
+                        "",
+                        index=d.index,
+                    ),
+                )
+                .fillna("")
+                .astype(str)
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=d["Mercado"],
+                    y=d["UDLA sin beca"],
+                    mode="markers",
+                    marker=dict(
+                        size=7,
+                        opacity=0.55,
+                        color=D,
+                    ),
+                    text=hover,
+                    hovertemplate=(
+                        "%{text}<br>"
+                        "Mercado: $%{x:,.2f}<br>"
+                        "UDLA: $%{y:,.2f}"
+                        "<extra></extra>"
+                    ),
+                    name="Sin beca",
+                ),
+                row=1,
+                col=1,
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=d["Mercado"],
+                    y=d["UDLA con beca"],
+                    mode="markers",
+                    marker=dict(
+                        size=7,
+                        opacity=0.55,
+                        color=P,
+                    ),
+                    text=hover,
+                    hovertemplate=(
+                        "%{text}<br>"
+                        "Mercado: $%{x:,.2f}<br>"
+                        "UDLA con beca: $%{y:,.2f}"
+                        "<extra></extra>"
+                    ),
+                    name="Con beca final",
+                ),
+                row=1,
+                col=2,
+            )
+
+            lo = float(
+                np.nanmin(
+                    [
+                        d["Mercado"].min(),
+                        d["UDLA sin beca"].min(),
+                        d["UDLA con beca"].min(),
+                    ]
+                )
+            )
+
+            hi = float(
+                np.nanmax(
+                    [
+                        d["Mercado"].max(),
+                        d["UDLA sin beca"].max(),
+                        d["UDLA con beca"].max(),
+                    ]
+                )
+            )
+
+            for j in [1, 2]:
+                fig.add_trace(
+                    go.Scatter(
+                        x=[lo, hi],
+                        y=[lo, hi],
+                        mode="lines",
+                        line=dict(
+                            color=G,
+                            dash="dash",
+                        ),
+                        name="Igual al mercado",
+                        showlegend=j == 1,
+                        hoverinfo="skip",
+                    ),
+                    row=1,
+                    col=j,
+                )
+
+            fig.update_xaxes(
+                title_text="Referencia de mercado",
+                tickprefix="$",
+            )
+
+            fig.update_yaxes(
+                title_text="Costo UDLA",
+                tickprefix="$",
+                row=1,
+                col=1,
+            )
+
+            fig.update_yaxes(
+                title_text="Costo UDLA con beca",
+                tickprefix="$",
+                row=1,
+                col=2,
+            )
+
+            fig.update_layout(
+                height=520,
+                template="plotly_white",
+                margin=dict(
+                    l=20,
+                    r=20,
+                    t=70,
+                    b=30,
+                ),
+                legend_title="",
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+            )
+
+            st.caption(
+                "Los puntos sobre la diagonal "
+                "indican que UDLA cuesta más "
+                "que la referencia de mercado."
+            )
+
+    else:
+        st.info(
+            "Faltan columnas de costos "
+            "para construir este gráfico."
+        )
+
+    # 2. BECA RECOMENDADA VS. FINAL
+    st.markdown(
+        "### 2. Beca recomendada "
+        "frente a beca final"
+    )
+
+    if {
+        "AdBecaRecomendada",
+        "AdBecaFinalSugerida",
+    }.issubset(f.columns):
+
+        d = pd.DataFrame(
+            {
+                "Beca recomendada": (
+                    num(
+                        f,
+                        "AdBecaRecomendada",
+                    )
+                    * 100
+                ),
+                "Beca final": (
+                    num(
+                        f,
+                        "AdBecaFinalSugerida",
+                    )
+                    * 100
+                ),
+                "Ajustada": np.where(
+                    num(
+                        f,
+                        "AdBecaFueAjustada",
+                    )
+                    .fillna(0)
+                    .eq(1),
+                    "Sí",
+                    "No",
+                ),
+                "Carrera": f.get(
+                    "AdCarrera",
+                    pd.Series(
+                        "Sin carrera",
+                        index=f.index,
+                    ),
+                ).fillna("Sin carrera"),
+            }
+        ).dropna(
+            subset=[
+                "Beca recomendada",
+                "Beca final",
+            ]
+        )
+
+        if d.empty:
+            st.info(
+                "No existen becas suficientes."
+            )
+
+        else:
+            fig = px.scatter(
+                d,
+                x="Beca recomendada",
+                y="Beca final",
+                color="Ajustada",
+                hover_data=["Carrera"],
+                opacity=0.65,
+                color_discrete_map={
+                    "Sí": P,
+                    "No": G,
+                },
+            )
+
+            mx = max(
+                100.0,
+                d[
+                    [
+                        "Beca recomendada",
+                        "Beca final",
+                    ]
+                ]
+                .max()
+                .max(),
+            )
+
+            fig.add_shape(
+                type="line",
+                x0=0,
+                y0=0,
+                x1=mx,
+                y1=mx,
+                line=dict(
+                    color=D,
+                    dash="dash",
+                ),
+            )
+
+            fig.update_layout(
+                height=480,
+                template="plotly_white",
+                xaxis_title=(
+                    "Beca recomendada (%)"
+                ),
+                yaxis_title=(
+                    "Beca final (%)"
+                ),
+                legend_title="Beca ajustada",
+                margin=dict(
+                    l=20,
+                    r=20,
+                    t=20,
+                    b=30,
+                ),
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+            )
+
+    else:
+        st.info(
+            "Faltan las variables de beca "
+            "recomendada o beca final."
+        )
+
+    # 3 Y 4
+    a, b = st.columns(2)
+
+    with a:
+        st.markdown(
+            "### 3. Brecha promedio por carrera"
+        )
+
+        gap_col = first_col(
+            f,
+            [
+                "AdGapFinalVsMercado",
+                "AdGapPostBecaMercado",
+            ],
+        )
+
+        if (
+            gap_col
+            and "AdCarrera" in f.columns
+        ):
+            d = f[
+                [
+                    "AdCarrera",
+                    gap_col,
+                ]
+            ].copy()
+
+            d[gap_col] = pd.to_numeric(
+                d[gap_col],
+                errors="coerce",
+            )
+
+            s = (
+                d.dropna()
+                .groupby(
+                    "AdCarrera",
+                    as_index=False,
+                )
+                .agg(
+                    BrechaPromedio=(
+                        gap_col,
+                        "mean",
+                    ),
+                    Casos=(
+                        gap_col,
+                        "size",
+                    ),
+                )
+            )
+
+            s = s[s["Casos"] >= 3]
+
+            s["Abs"] = (
+                s["BrechaPromedio"]
+                .abs()
+            )
+
+            s = (
+                s.nlargest(
+                    15,
+                    "Abs",
+                )
+                .sort_values(
+                    "BrechaPromedio"
+                )
+            )
+
+            if s.empty:
+                st.info(
+                    "No existen suficientes "
+                    "casos por carrera."
+                )
+
+            else:
+                colors = np.where(
+                    s["BrechaPromedio"] > 0,
+                    RED,
+                    GREEN,
+                )
+
+                fig = go.Figure(
+                    go.Bar(
+                        x=s["BrechaPromedio"],
+                        y=s["AdCarrera"],
+                        orientation="h",
+                        marker_color=colors,
+                        text=[
+                            money(v)
+                            for v in s[
+                                "BrechaPromedio"
+                            ]
+                        ],
+                        textposition="outside",
+                        customdata=s[["Casos"]],
+                        hovertemplate=(
+                            "%{y}<br>"
+                            "Brecha promedio: "
+                            "$%{x:,.2f}<br>"
+                            "Casos: %{customdata[0]}"
+                            "<extra></extra>"
+                        ),
+                    )
+                )
+
+                fig.add_vline(
+                    x=0,
+                    line_dash="dash",
+                    line_color=G,
+                )
+
+                fig.update_layout(
+                    height=560,
+                    template="plotly_white",
+                    xaxis_title=(
+                        "Brecha promedio frente "
+                        "al mercado"
+                    ),
+                    yaxis_title="",
+                    margin=dict(
+                        l=20,
+                        r=50,
+                        t=20,
+                        b=30,
+                    ),
+                )
+
+                st.plotly_chart(
+                    fig,
+                    use_container_width=True,
+                )
+
+                st.caption(
+                    "Brecha positiva: UDLA permanece "
+                    "por encima del mercado."
+                )
+
+        else:
+            st.info(
+                "No están disponibles la carrera "
+                "o la brecha final."
+            )
+
+    with b:
+        st.markdown(
+            "### 4. Embudo de cobertura del modelo"
+        )
+
+        total = len(f)
+
+        tariff = (
+            num(
+                f,
+                "AdCostoInstitucion",
+            )
+            .notna()
+            .sum()
+        )
+
+        market = (
+            num(
+                f,
+                "AdCostoRefMercado",
+            )
+            .notna()
+            .sum()
+        )
+
+        rec = (
+            num(
+                f,
+                "AdBecaRecomendada",
+            )
+            .notna()
+            .sum()
+        )
+
+        final = (
+            num(
+                f,
+                "AdBecaFinalSugerida",
+            )
+            .notna()
+            .sum()
+        )
+
+        if (
+            "AdResultadoCompetitividadFinal"
+            in f.columns
+        ):
+            competitive = int(
+                (
+                    contains(
+                        f[
+                            "AdResultadoCompetitividadFinal"
+                        ],
+                        "iguala",
+                    )
+                    |
+                    contains(
+                        f[
+                            "AdResultadoCompetitividadFinal"
+                        ],
+                        "mejora",
+                    )
+                )
+                .sum()
+            )
+        else:
+            competitive = 0
+
+        funnel = pd.DataFrame(
+            {
+                "Etapa": [
+                    "Total de registros",
+                    "Con tarifa UDLA",
+                    "Con referencia de mercado",
+                    "Con beca recomendada",
+                    "Con beca final",
+                    "Iguala o mejora el mercado",
+                ],
+                "Cantidad": [
+                    total,
+                    tariff,
+                    market,
+                    rec,
+                    final,
+                    competitive,
+                ],
+            }
+        )
+
+        fig = go.Figure(
+            go.Funnel(
+                y=funnel["Etapa"],
+                x=funnel["Cantidad"],
+                textinfo=(
+                    "value+percent initial"
+                ),
+                marker=dict(
+                    color=[
+                        D,
+                        P,
+                        M,
+                        "#D98CA0",
+                        "#E6B5C1",
+                        GREEN,
+                    ]
+                ),
+            )
+        )
+
+        fig.update_layout(
+            height=560,
+            template="plotly_white",
+            margin=dict(
+                l=20,
+                r=20,
+                t=20,
+                b=30,
+            ),
+        )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True,
+        )
+
+    # 5. MATRIZ
+    st.markdown(
+        "### 5. Matriz de beca final "
+        "por carrera y nivel socioeconómico"
+    )
+
+    if {
+        "AdCarrera",
+        "AdNivelSocioec",
+        "AdBecaFinalSugerida",
+    }.issubset(f.columns):
+
+        top = (
+            f["AdCarrera"]
+            .dropna()
+            .value_counts()
+            .head(15)
+            .index
+        )
+
+        d = f[
+            f["AdCarrera"].isin(top)
+        ][
+            [
+                "AdCarrera",
+                "AdNivelSocioec",
+                "AdBecaFinalSugerida",
+            ]
+        ].copy()
+
+        d["AdBecaFinalSugerida"] = (
+            pd.to_numeric(
+                d["AdBecaFinalSugerida"],
+                errors="coerce",
+            )
+            * 100
+        )
+
+        matrix = d.pivot_table(
+            index="AdCarrera",
+            columns="AdNivelSocioec",
+            values="AdBecaFinalSugerida",
+            aggfunc="mean",
+        )
+
+        if matrix.empty:
+            st.info(
+                "No existen datos suficientes "
+                "para construir la matriz."
+            )
+
+        else:
+            fig = px.imshow(
+                matrix,
+                text_auto=".1f",
+                aspect="auto",
+                color_continuous_scale=[
+                    [0, "#F9EDF1"],
+                    [0.5, M],
+                    [1, D],
+                ],
+                labels=dict(
+                    x="Nivel socioeconómico",
+                    y="Carrera",
+                    color="Beca promedio (%)",
+                ),
+            )
+
+            fig.update_layout(
+                height=650,
+                template="plotly_white",
+                margin=dict(
+                    l=20,
+                    r=20,
+                    t=20,
+                    b=30,
+                ),
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+            )
+
+    else:
+        st.info(
+            "Faltan carrera, nivel socioeconómico "
+            "o beca final."
+        )
+
+    # 6 Y 7
+    a, b = st.columns(2)
+
+    with a:
+        st.markdown(
+            "### 6. Confianza de referencia "
+            "y resultado competitivo"
+        )
+
+        if {
+            "AdConfianzaReferenciaMercado",
+            "AdResultadoCompetitividadFinal",
+        }.issubset(f.columns):
+
+            d = pd.crosstab(
+                f[
+                    "AdConfianzaReferenciaMercado"
+                ].fillna("Sin información"),
+                f[
+                    "AdResultadoCompetitividadFinal"
+                ].fillna("Sin información"),
+            ).reset_index()
+
+            d = d.melt(
+                id_vars=(
+                    "AdConfianzaReferenciaMercado"
+                ),
+                var_name="Resultado",
+                value_name="Cantidad",
+            )
+
+            fig = px.bar(
+                d,
+                x="AdConfianzaReferenciaMercado",
+                y="Cantidad",
+                color="Resultado",
+                barmode="stack",
+                text_auto=True,
+                color_discrete_sequence=[
+                    GREEN,
+                    RED,
+                    G,
+                    M,
+                ],
+            )
+
+            fig.update_layout(
+                height=520,
+                template="plotly_white",
+                xaxis_title=(
+                    "Confianza de la referencia"
+                ),
+                yaxis_title="Cantidad",
+                legend_title=(
+                    "Resultado competitivo"
+                ),
+                margin=dict(
+                    l=20,
+                    r=20,
+                    t=20,
+                    b=30,
+                ),
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+            )
+
+        else:
+            st.info(
+                "Faltan la confianza "
+                "o el resultado competitivo."
+            )
+
+    with b:
+        st.markdown(
+            "### 7. Distribución de becas "
+            "recomendadas y finales"
+        )
+
+        if {
+            "AdBecaRecomendada",
+            "AdBecaFinalSugerida",
+        }.issubset(f.columns):
+
+            bins = [
+                0,
+                10,
+                20,
+                30,
+                40,
+                50,
+                60,
+                75,
+                101,
+            ]
+
+            labels = [
+                "0%–<10%",
+                "10%–<20%",
+                "20%–<30%",
+                "30%–<40%",
+                "40%–<50%",
+                "50%–<60%",
+                "60%–<75%",
+                "75%–100%",
+            ]
+
+            def dist(series, name):
+                x = (
+                    series
+                    * 100
+                ).clip(
+                    0,
+                    100,
+                )
+
+                out = (
+                    pd.cut(
+                        x,
+                        bins=bins,
+                        labels=labels,
+                        right=False,
+                        include_lowest=True,
+                    )
+                    .value_counts(sort=False)
+                    .rename_axis("Rango")
+                    .reset_index(
+                        name="Cantidad"
+                    )
+                )
+
+                out["Tipo"] = name
+
+                return out
+
+            d = pd.concat(
+                [
+                    dist(
+                        num(
+                            f,
+                            "AdBecaRecomendada",
+                        ),
+                        "Beca recomendada",
+                    ),
+                    dist(
+                        num(
+                            f,
+                            "AdBecaFinalSugerida",
+                        ),
+                        "Beca final",
+                    ),
+                ],
+                ignore_index=True,
+            )
+
+            fig = px.bar(
+                d,
+                x="Rango",
+                y="Cantidad",
+                color="Tipo",
+                barmode="group",
+                text_auto=True,
+                color_discrete_map={
+                    "Beca recomendada": G,
+                    "Beca final": P,
+                },
+            )
+
+            fig.update_layout(
+                height=520,
+                template="plotly_white",
+                xaxis_title="Rango de beca",
+                yaxis_title="Cantidad",
+                legend_title="",
+                margin=dict(
+                    l=20,
+                    r=20,
+                    t=20,
+                    b=60,
+                ),
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+            )
+
+        else:
+            st.info(
+                "Faltan las variables de beca "
+                "recomendada o final."
+            )
+
+    # 8. GESTIÓN POR CONSULTOR
+    st.markdown(
+        "### 8. Gestión por consultor"
+    )
+
+    if "AdAsesorNombre" in f.columns:
+        d = f.copy()
+
+        d["Dias"] = num(
+            d,
+            "AdDiasSinGestion",
+        )
+
+        d["Revision"] = (
+            num(
+                d,
+                "AdRequiereRevisionComercial",
+            )
+            .fillna(0)
+        )
+
+        d["Ajustada"] = (
+            num(
+                d,
+                "AdBecaFueAjustada",
+            )
+            .fillna(0)
+        )
+
+        if "AdIdentificacion" in d.columns:
+            s = (
+                d.groupby(
+                    "AdAsesorNombre",
+                    dropna=False,
+                )
+                .agg(
+                    Postulantes=(
+                        "AdIdentificacion",
+                        "nunique",
+                    ),
+                    PromedioDiasSinGestion=(
+                        "Dias",
+                        "mean",
+                    ),
+                    CasosRevision=(
+                        "Revision",
+                        "sum",
+                    ),
+                    BecasAjustadas=(
+                        "Ajustada",
+                        "sum",
+                    ),
+                )
+                .reset_index()
+            )
+
+        else:
+            s = (
+                d.groupby(
+                    "AdAsesorNombre",
+                    dropna=False,
+                )
+                .agg(
+                    Postulantes=(
+                        "AdAsesorNombre",
+                        "size",
+                    ),
+                    PromedioDiasSinGestion=(
+                        "Dias",
+                        "mean",
+                    ),
+                    CasosRevision=(
+                        "Revision",
+                        "sum",
+                    ),
+                    BecasAjustadas=(
+                        "Ajustada",
+                        "sum",
+                    ),
+                )
+                .reset_index()
+            )
+
+        s["AdAsesorNombre"] = (
+            s["AdAsesorNombre"]
+            .fillna("Sin asesor")
+        )
+
+        s = (
+            s.nlargest(
+                15,
+                "Postulantes",
+            )
+            .sort_values("Postulantes")
+        )
+
+        if s.empty:
+            st.info(
+                "No existen asesores "
+                "para construir este gráfico."
+            )
+
+        else:
+            fig = make_subplots(
+                specs=[
+                    [
+                        {
+                            "secondary_y": True
+                        }
+                    ]
+                ]
+            )
+
+            fig.add_trace(
+                go.Bar(
+                    x=s["AdAsesorNombre"],
+                    y=s["Postulantes"],
+                    name="Postulantes",
+                    marker_color=P,
+                    text=s["Postulantes"],
+                    textposition="outside",
+                    customdata=s[
+                        [
+                            "CasosRevision",
+                            "BecasAjustadas",
+                        ]
+                    ],
+                    hovertemplate=(
+                        "%{x}<br>"
+                        "Postulantes: %{y}<br>"
+                        "Revisión comercial: "
+                        "%{customdata[0]:.0f}<br>"
+                        "Becas ajustadas: "
+                        "%{customdata[1]:.0f}"
+                        "<extra></extra>"
+                    ),
+                ),
+                secondary_y=False,
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=s["AdAsesorNombre"],
+                    y=s[
+                        "PromedioDiasSinGestion"
+                    ],
+                    name=(
+                        "Promedio días sin gestión"
+                    ),
+                    mode="lines+markers",
+                    line=dict(
+                        color=YELLOW,
+                        width=3,
+                    ),
+                    marker=dict(
+                        size=8
+                    ),
+                    hovertemplate=(
+                        "%{x}<br>"
+                        "Promedio días: %{y:.1f}"
+                        "<extra></extra>"
+                    ),
+                ),
+                secondary_y=True,
+            )
+
+            fig.update_xaxes(
+                title_text="Consultor",
+                tickangle=-35,
+            )
+
+            fig.update_yaxes(
+                title_text="Postulantes",
+                secondary_y=False,
+            )
+
+            fig.update_yaxes(
+                title_text=(
+                    "Promedio días sin gestión"
+                ),
+                secondary_y=True,
+            )
+
+            fig.update_layout(
+                height=620,
+                template="plotly_white",
+                legend_title="",
+                margin=dict(
+                    l=20,
+                    r=20,
+                    t=30,
+                    b=140,
+                ),
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+            )
+
+            table = (
+                s.rename(
+                    columns={
+                        "AdAsesorNombre": (
+                            "Consultor"
+                        ),
+                        "PromedioDiasSinGestion": (
+                            "Promedio días sin gestión"
+                        ),
+                        "CasosRevision": (
+                            "Casos para revisión"
+                        ),
+                        "BecasAjustadas": (
+                            "Becas ajustadas"
+                        ),
+                    }
+                )
+                .sort_values(
+                    "Postulantes",
+                    ascending=False,
+                )
+            )
+
+            st.dataframe(
+                table,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Promedio días sin gestión": (
+                        st.column_config.NumberColumn(
+                            "Promedio días sin gestión",
+                            format="%.1f",
+                        )
+                    ),
+                    "Casos para revisión": (
+                        st.column_config.NumberColumn(
+                            "Casos para revisión",
+                            format="%.0f",
+                        )
+                    ),
+                    "Becas ajustadas": (
+                        st.column_config.NumberColumn(
+                            "Becas ajustadas",
+                            format="%.0f",
+                        )
+                    ),
+                },
+            )
+
+    else:
+        st.info(
+            "No está disponible "
+            "el consultor de cierre."
+        )
+
 
 st.divider()
 
