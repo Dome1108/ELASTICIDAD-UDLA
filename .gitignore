@@ -1,0 +1,25 @@
+# Entorno virtual
+.venv/
+venv/
+
+# Archivos de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Configuraciones privadas
+.env
+.streamlit/secrets.toml
+
+# Datos sensibles
+*.csv
+*.xlsx
+*.xls
+*.parquet
+
+# Carpetas locales
+salidas_elasticidad/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
